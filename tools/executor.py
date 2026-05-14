@@ -15,7 +15,7 @@ def is_dangerous(command: str) -> bool:
     return any(p in command for p in DANGEROUS_PATTERNS)
 
 
-def run_command(command: str, cwd: str = None) -> str:
+def run_command(command: str, cwd: str = None, callback=None) -> str:
     work_dir = cwd or os.getcwd()
 
     if is_dangerous(command):
@@ -41,11 +41,12 @@ def run_command(command: str, cwd: str = None) -> str:
 
         with Live(console=console, refresh_per_second=10) as live:
             for line in iter(process.stdout.readline, ""):
-                # handle \r progress lines from tqdm/sweetviz
                 for part in line.replace("\r", "\n").split("\n"):
                     part = part.strip()
                     if part:
                         output_lines.append(part)
+                        if callback:
+                            callback("output", part)
                 display = "\n".join(output_lines[-20:])
                 live.update(Panel(Text(display), title="[green]Output[/green]", border_style="green"))
 

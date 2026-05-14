@@ -15,6 +15,19 @@ MODEL = "gpt-4o"
 COMMAND_TIMEOUT = 120
 MAX_TOKENS = 80000
 
+# pricing per 1M tokens (USD) — update if model changes
+MODEL_PRICING = {
+    "gpt-4o":           {"input": 2.50, "output": 10.00},
+    "gpt-4o-mini":      {"input": 0.15, "output": 0.60},
+    "gpt-4-turbo":      {"input": 10.00, "output": 30.00},
+    "gpt-3.5-turbo":    {"input": 0.50, "output": 1.50},
+}
+
+
+def calculate_cost(input_tokens: int, output_tokens: int) -> float:
+    pricing = MODEL_PRICING.get(MODEL, {"input": 0, "output": 0})
+    return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
+
 SYSTEM_PROMPT = """You are an expert AI coding agent with full terminal access. You can run shell commands, read/write files, and fix errors iteratively.
 
 Guidelines:

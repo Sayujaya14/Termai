@@ -4,7 +4,7 @@ import re
 from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
-from config import MODEL, MAX_TOKENS, SYSTEM_PROMPT, API_KEY, BASE_URL
+from config import MODEL, MAX_TOKENS, SYSTEM_PROMPT, API_KEY, BASE_URL, calculate_cost
 from tools import TOOLS, handle_tool
 from memory import get_memory_context, save_task, update_summary
 from skills import find_skill
@@ -46,7 +46,64 @@ def make_workspace(task: str) -> str:
     return folder
 
 
-def run_agent(task: str):
+SIMPLE_QUERY_PATTERNS = [
+    r'^what\b', r'^who\b', r'^why\b', r'^how\b', r'^when\b', r'^where\b',
+    r'^explain\b', r'^define\b', r'^tell me\b', r'^describe\b',
+    r'^what is\b', r'^what are\b', r'^can you explain\b', r'^difference between\b',
+    r'^which\b', r'^is\b', r'^are\b', r'^does\b', r'^do\b', r'^can\b',
+    r'^give me an example\b', r'^show me an example\b',
+]
+
+GREETINGS = ["hi", "hello", "hey", "hii", "helo", "yo"]
+ACTION_KEYWORDS = ["create", "build", "make", "generate", "write", "run",
+                   "execute", "install", "scrape", "train", "deploy", "fix",
+                   "debug", "analyze", "plot", "download", "fetch", "send"]
+
+
+def is_simple_query(task: str) -> bool:
+    t = task.strip().lower()
+    # strip leading greeting words like "hi", "hello", "hey"
+    for greet in GREETINGS:
+        if t.startswith(greet + " "):
+            t = t[len(greet):].strip()
+            break
+    if any(kw in t for kw in ACTION_KEYWORDS):
+        return False
+    return any(re.match(p, t) for p in SIMPLE_QUERY_PATTERNS)
+
+
+def answer_directly(task: str, callback=None):
+    """Answer simple questions without workspace, tools or file creation."""
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant. Answer the question concisely in plain text. Do NOT create any files, do NOT use any tools, do NOT write code unless explicitly asked."},
+            {"role": "user", "content": task}
+        ]
+        # no tools passed — so LLM physically cannot call any
+    )
+    answer = response.choices[0].message.content or ""
+    input_tokens = response.usage.prompt_tokens if response.usage else 0
+    output_tokens = response.usage.completion_tokens if response.usage else 0
+    cost = calculate_cost(input_tokens, output_tokens)
+    cost_str = f"${cost:.4f}" if cost >= 0.0001 else "< $0.0001"
+    usage_str = f"🪙 {input_tokens + output_tokens} tokens ({input_tokens} in / {output_tokens} out) — {cost_str}"
+
+    if callback:
+        callback("done", answer)
+        callback("cost", usage_str)
+    console.print(Panel(f"[bold green]{answer}[/bold green]\n[dim]{usage_str}[/dim]",
+                        title="[bold green]✅ Answer[/bold green]", border_style="green"))
+
+
+def run_agent(task: str, callback=None):
+    if is_simple_query(task):
+        console.print(f"[dim]💬 Simple query — answering directly[/dim]")
+        if callback:
+            callback("thinking", "💬 Simple query — answering directly")
+        answer_directly(task, callback)
+        return
+
     workspace = make_workspace(task)
     console.print(f"[dim]📂 Workspace: {workspace}[/dim]")
 
@@ -57,6 +114,8 @@ def run_agent(task: str):
     skill_section = f"\n\nRelevant skill guide:\n{skill}" if skill else ""
     if skill:
         console.print(f"[dim]📖 Skill matched for this task[/dim]")
+        if callback:
+            callback("skill", "📖 Skill matched for this task")
 
     save_task(task, workspace)
 
@@ -72,6 +131,9 @@ def run_agent(task: str):
     ))
 
     step = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
+
     while True:
         step += 1
         messages = trim_messages(messages)
@@ -83,15 +145,27 @@ def run_agent(task: str):
                 messages=messages
             )
 
+        # accumulate token usage
+        if response.usage:
+            total_input_tokens += response.usage.prompt_tokens
+            total_output_tokens += response.usage.completion_tokens
+
         message = response.choices[0].message
         messages.append(message)
         finish = response.choices[0].finish_reason
 
         if finish == "stop":
             summary = message.content or ""
-            update_summary(task, summary[:200])
+            cost = calculate_cost(total_input_tokens, total_output_tokens)
+            cost_str = f"${cost:.4f}" if cost >= 0.0001 else "< $0.0001"
+            usage_str = f"🪙 {total_input_tokens + total_output_tokens} tokens ({total_input_tokens} in / {total_output_tokens} out) — {cost_str}"
+
+            update_summary(task, f"{summary[:180]} | {usage_str}")
+            if callback:
+                callback("done", message.content)
+                callback("cost", usage_str)
             console.print(Panel(
-                f"[bold green]{message.content}[/bold green]",
+                f"[bold green]{message.content}[/bold green]\n[dim]{usage_str}[/dim]",
                 title="[bold green]✅ Done[/bold green]",
                 border_style="green"
             ))
@@ -102,7 +176,9 @@ def run_agent(task: str):
                 name = tool_call.function.name
                 inputs = json.loads(tool_call.function.arguments)
                 console.print(f"\n[bold cyan]🔧 Tool:[/bold cyan] [yellow]{name}[/yellow]")
-                result = handle_tool(name, inputs)
+                if callback:
+                    callback("tool", f"{name}: {json.dumps(inputs)[:200]}")
+                result = handle_tool(name, inputs, callback=callback)
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,

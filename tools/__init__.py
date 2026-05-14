@@ -87,8 +87,10 @@ TOOL_MAP = {
 }
 
 
-def handle_tool(name: str, inputs: dict) -> str:
+def handle_tool(name: str, inputs: dict, callback=None) -> str:
     fn = TOOL_MAP.get(name)
-    if fn:
-        return fn(**inputs)
-    return f"Unknown tool: {name}"
+    if not fn:
+        return f"Unknown tool: {name}"
+    if name == "run_command" and callback:
+        return fn(**inputs, callback=callback)
+    return fn(**inputs)
