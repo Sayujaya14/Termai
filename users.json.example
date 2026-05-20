@@ -1,0 +1,10 @@
+{
+  "alice": {
+    "name": "Alice",
+    "password_hash": "$2b$12$FcBZ90iOKnqkANrwMaPDCufof/TfzuWafpFkudkLHCbn348dowoDC"
+  },
+  "bob": {
+    "name": "Bob",
+    "password_hash": "$2b$12$FcBZ90iOKnqkANrwMaPDCufof/TfzuWafpFkudkLHCbn348dowoDC"
+  }
+}

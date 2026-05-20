@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+users.json
+memory/
 memory.toon
 workspaces/
 
@@ -11,3 +13,4 @@ test.py
 test.html
 test.txt
 scenario-testing-report (28).html
+memory.toon.bak

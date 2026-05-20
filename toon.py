@@ -25,6 +25,27 @@ def dumps(data: dict) -> str:
     return "\n".join(lines)
 
 
+def _split_row(line: str) -> list[str]:
+    """Split on | but not on escaped \\|."""
+    parts: list[str] = []
+    buf: list[str] = []
+    i = 0
+    while i < len(line):
+        if line[i] == "\\" and i + 1 < len(line):
+            buf.append(line[i : i + 2])
+            i += 2
+            continue
+        if line[i] == "|":
+            parts.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(line[i])
+        i += 1
+    parts.append("".join(buf))
+    return [_unescape(p) for p in parts]
+
+
 def loads(text: str) -> dict:
     data = {"tasks": []}
     section = None
@@ -41,12 +62,11 @@ def loads(text: str) -> dict:
             continue
 
         if section == "tasks":
-            cols = [_unescape(c) for c in line.split("|")]
+            cols = _split_row(line)
             if not headers:
                 headers = cols
-            else:
-                if len(cols) == len(headers):
-                    data["tasks"].append(dict(zip(headers, cols)))
+            elif len(cols) == len(headers):
+                data["tasks"].append(dict(zip(headers, cols)))
 
     return data
 

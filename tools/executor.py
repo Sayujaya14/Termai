@@ -23,6 +23,9 @@ def run_command(command: str, cwd: str = None, callback=None) -> str:
             f"[bold red]⚠ DANGEROUS COMMAND DETECTED[/bold red]\n[yellow]{command}[/yellow]",
             border_style="red"
         ))
+        if callback:
+            callback("error", f"Blocked dangerous command: {command}")
+            return "Command cancelled: dangerous command blocked in web UI."
         if not Confirm.ask("[red]Are you sure you want to run this?[/red]"):
             return "Command cancelled by user."
 

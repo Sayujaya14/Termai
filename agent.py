@@ -1,12 +1,14 @@
 import json
 import os
 import re
+from datetime import datetime
 from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
 from config import MODEL, MAX_TOKENS, SYSTEM_PROMPT, API_KEY, BASE_URL, calculate_cost
 from tools import TOOLS, handle_tool
 from memory import get_memory_context, save_task, update_summary
+from paths import make_task_workspace
 from skills import find_skill
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
@@ -39,13 +41,6 @@ def trim_messages(messages: list) -> list:
     return system + rest
 
 
-def make_workspace(task: str) -> str:
-    slug = re.sub(r'[^a-z0-9]+', '_', task.lower()).strip('_')[:50]
-    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspaces", slug)
-    os.makedirs(folder, exist_ok=True)
-    return folder
-
-
 SIMPLE_QUERY_PATTERNS = [
     r'^what\b', r'^who\b', r'^why\b', r'^how\b', r'^when\b', r'^where\b',
     r'^explain\b', r'^define\b', r'^tell me\b', r'^describe\b',
@@ -55,9 +50,11 @@ SIMPLE_QUERY_PATTERNS = [
 ]
 
 GREETINGS = ["hi", "hello", "hey", "hii", "helo", "yo"]
-ACTION_KEYWORDS = ["create", "build", "make", "generate", "write", "run",
-                   "execute", "install", "scrape", "train", "deploy", "fix",
-                   "debug", "analyze", "plot", "download", "fetch", "send"]
+ACTION_KEYWORDS = [
+    "create", "build", "make", "generate", "write", "run", "execute", "install",
+    "scrape", "train", "deploy", "fix", "debug", "analyze", "plot", "download",
+    "fetch", "send", "eda", "report", "dataset", "csv", "script", "code",
+]
 
 
 def is_simple_query(task: str) -> bool:
@@ -72,8 +69,15 @@ def is_simple_query(task: str) -> bool:
     return any(re.match(p, t) for p in SIMPLE_QUERY_PATTERNS)
 
 
-def answer_directly(task: str, callback=None):
+def _chat_memory_label() -> str:
+    return f"(chat/{datetime.now().strftime('%Y%m%d_%H%M%S')})"
+
+
+def answer_directly(task: str, user_id: str, callback=None):
     """Answer simple questions without workspace, tools or file creation."""
+    memory_label = _chat_memory_label()
+    save_task(user_id, task, memory_label)
+
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
@@ -89,25 +93,31 @@ def answer_directly(task: str, callback=None):
     cost_str = f"${cost:.4f}" if cost >= 0.0001 else "< $0.0001"
     usage_str = f"🪙 {input_tokens + output_tokens} tokens ({input_tokens} in / {output_tokens} out) — {cost_str}"
 
+    summary = f"{(answer or '')[:180]} | {usage_str}"
+    update_summary(user_id, memory_label, summary)
+
     if callback:
+        callback("thinking", "💾 Saved to memory (chat only — no workspace files)")
         callback("done", answer)
         callback("cost", usage_str)
     console.print(Panel(f"[bold green]{answer}[/bold green]\n[dim]{usage_str}[/dim]",
                         title="[bold green]✅ Answer[/bold green]", border_style="green"))
 
 
-def run_agent(task: str, callback=None):
+def run_agent(task: str, user_id: str, callback=None):
     if is_simple_query(task):
         console.print(f"[dim]💬 Simple query — answering directly[/dim]")
         if callback:
             callback("thinking", "💬 Simple query — answering directly")
-        answer_directly(task, callback)
+        answer_directly(task, user_id, callback)
         return
 
-    workspace = make_workspace(task)
+    workspace = make_task_workspace(user_id, task)
     console.print(f"[dim]📂 Workspace: {workspace}[/dim]")
+    if callback:
+        callback("thinking", f"Workspace: {workspace}")
 
-    memory_ctx = get_memory_context()
+    memory_ctx = get_memory_context(user_id)
     memory_section = f"\n\nMemory (past tasks):\n{memory_ctx}" if memory_ctx else ""
 
     skill = find_skill(task)
@@ -117,7 +127,7 @@ def run_agent(task: str, callback=None):
         if callback:
             callback("skill", "📖 Skill matched for this task")
 
-    save_task(task, workspace)
+    save_task(user_id, task, workspace)
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -137,6 +147,9 @@ def run_agent(task: str, callback=None):
     while True:
         step += 1
         messages = trim_messages(messages)
+
+        if callback:
+            callback("thinking", f"Thinking... (step {step})")
 
         with console.status(f"[bold cyan]Thinking... (step {step})[/bold cyan]", spinner="dots"):
             response = client.chat.completions.create(
@@ -160,7 +173,7 @@ def run_agent(task: str, callback=None):
             cost_str = f"${cost:.4f}" if cost >= 0.0001 else "< $0.0001"
             usage_str = f"🪙 {total_input_tokens + total_output_tokens} tokens ({total_input_tokens} in / {total_output_tokens} out) — {cost_str}"
 
-            update_summary(task, f"{summary[:180]} | {usage_str}")
+            update_summary(user_id, workspace, f"{summary[:180]} | {usage_str}")
             if callback:
                 callback("done", message.content)
                 callback("cost", usage_str)
