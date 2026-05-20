@@ -14,7 +14,7 @@ from auth import (
     render_login_page,
 )
 from memory import get_all_tasks
-from paths import run_startup_migrations, user_workspace_root
+from paths import user_workspace_root
 from skills import list_skills
 from ui_styles import inject_global_css, page_header
 from workspace_zip import zip_workspace
@@ -34,8 +34,6 @@ if not is_logged_in():
 
 user_id = get_current_user_id()
 user_name = st.session_state.get("user_name", user_id)
-run_startup_migrations()
-
 _pages = ["Agent", "Memory", "Skills"]
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "Agent"
@@ -102,7 +100,6 @@ def _drain_agent_queue():
         except queue.Empty:
             break
         if event_type == "__done__":
-            st.session_state.agent_done = True
             continue
         if event_type == "workspace":
             st.session_state.task_workspace = content
@@ -160,7 +157,6 @@ def _finish_agent_run():
     st.session_state.running = False
     st.session_state.pop("agent_thread", None)
     st.session_state.pop("agent_queue", None)
-    st.session_state.pop("agent_done", None)
     from memory import sync_workspaces_to_memory
 
     uid = get_current_user_id()
@@ -281,7 +277,6 @@ if page == "Agent":
         st.session_state.pop("task_zip_name", None)
         st.session_state.pop("task_workspace", None)
         st.session_state.running = True
-        st.session_state.agent_done = False
         event_queue = queue.Queue()
         st.session_state.agent_queue = event_queue
 

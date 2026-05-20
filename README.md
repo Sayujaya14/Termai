@@ -96,7 +96,7 @@ Termai/
 ├── users.json.example  # template user accounts
 ├── memory/             # per-user *.toon (gitignored), e.g. memory/alice.toon
 ├── workspaces/         # workspaces/<user>/<task>_<time>/ (gitignored)
-├── paths.py            # paths + legacy migration
+├── paths.py            # per-user workspace paths
 ├── tools/
 │   ├── __init__.py
 │   ├── executor.py

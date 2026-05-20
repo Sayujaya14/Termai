@@ -5,7 +5,7 @@ from datetime import datetime
 
 import toon
 
-from paths import MEMORY_DIR, run_startup_migrations, user_workspace_root, validate_user_id
+from paths import MEMORY_DIR, user_workspace_root, validate_user_id
 
 _WORKSPACE_TS = re.compile(r"_\d{8}_\d{6}$")
 
@@ -27,7 +27,6 @@ def _memory_path(user_id: str) -> str:
 
 
 def _load(user_id: str) -> dict:
-    run_startup_migrations()
     path = _memory_path(user_id)
     if os.path.exists(path):
         with open(path, "r") as f:

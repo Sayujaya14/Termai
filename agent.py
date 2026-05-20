@@ -1,5 +1,4 @@
 import json
-import os
 import re
 from datetime import datetime
 from openai import OpenAI
@@ -13,18 +12,6 @@ from skills import find_skill
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 console = Console()
-
-
-def get_project_context(cwd: str) -> str:
-    lines = [f"Working directory: {cwd}"]
-    try:
-        for entry in sorted(os.scandir(cwd), key=lambda e: e.name):
-            if entry.name.startswith("."):
-                continue
-            lines.append(f"  {entry.name}{'/' if entry.is_dir() else ''}")
-    except Exception:
-        pass
-    return "\n".join(lines)
 
 
 def get_role(m) -> str:

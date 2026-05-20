@@ -27,10 +27,6 @@ def _parse_skill(content: str) -> dict:
     }
 
 
-def _get_keywords(content: str) -> list[str]:
-    return _parse_skill(content)["keywords"]
-
-
 def find_skill(task: str) -> str | None:
     if not os.path.exists(SKILLS_DIR):
         return None
@@ -42,9 +38,9 @@ def find_skill(task: str) -> str | None:
         path = os.path.join(SKILLS_DIR, filename)
         with open(path, "r") as f:
             content = f.read()
-        keywords = _parse_skill(content)["keywords"]
-        if any(kw in task_lower for kw in keywords):
-            return _parse_skill(content)["instructions"]  # only inject instructions, not trigger keywords
+        parsed = _parse_skill(content)
+        if any(kw in task_lower for kw in parsed["keywords"]):
+            return parsed["instructions"]
     return None
 
 
