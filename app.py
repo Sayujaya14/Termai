@@ -17,6 +17,7 @@ from memory import get_all_tasks
 from paths import run_startup_migrations, user_workspace_root
 from skills import list_skills
 from ui_styles import inject_global_css, page_header
+from workspace_zip import zip_workspace
 
 st.set_page_config(
     page_title="Termai",
@@ -103,6 +104,9 @@ def _drain_agent_queue():
         if event_type == "__done__":
             st.session_state.agent_done = True
             continue
+        if event_type == "workspace":
+            st.session_state.task_workspace = content
+            continue
         _append_agent_event(event_type, content)
 
 
@@ -132,8 +136,27 @@ def _agent_thread_finished() -> bool:
     return thread is None or not thread.is_alive()
 
 
+def _prepare_task_download():
+    """Build zip of last task workspace for st.download_button."""
+    ws = st.session_state.pop("task_workspace", None)
+    st.session_state.pop("task_zip", None)
+    st.session_state.pop("task_zip_name", None)
+    if not ws or ws.startswith("(chat") or not os.path.isdir(ws):
+        return
+    packed = zip_workspace(ws)
+    if packed:
+        data, filename = packed
+        st.session_state.task_zip = data
+        st.session_state.task_zip_name = filename
+        st.session_state.log_lines.append(
+            f'<div class="line-thinking">📦 Outputs zipped — use Download below '
+            f"({html.escape(filename)})</div>"
+        )
+
+
 def _finish_agent_run():
     _drain_agent_queue()
+    _prepare_task_download()
     st.session_state.running = False
     st.session_state.pop("agent_thread", None)
     st.session_state.pop("agent_queue", None)
@@ -217,6 +240,20 @@ if page == "Agent":
     st.session_state.terminal_ph = st.empty()
     poll_agent_terminal()
 
+    if (
+        not st.session_state.running
+        and st.session_state.get("task_zip")
+        and st.session_state.get("task_zip_name")
+    ):
+        st.download_button(
+            label=f"Download outputs ({st.session_state.task_zip_name})",
+            data=st.session_state.task_zip,
+            file_name=st.session_state.task_zip_name,
+            mime="application/zip",
+            type="primary",
+            use_container_width=True,
+        )
+
     st.markdown("<div style='height:88px'></div>", unsafe_allow_html=True)
     st.markdown('<div class="input-bar">', unsafe_allow_html=True)
     with st.form("task_form", clear_on_submit=False, border=False):
@@ -240,6 +277,9 @@ if page == "Agent":
     if run_btn and (task or "").strip() and not st.session_state.running:
         safe_task = task.strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         st.session_state.log_lines.append(f'<div class="line-task">$ {safe_task}</div>')
+        st.session_state.pop("task_zip", None)
+        st.session_state.pop("task_zip_name", None)
+        st.session_state.pop("task_workspace", None)
         st.session_state.running = True
         st.session_state.agent_done = False
         event_queue = queue.Queue()

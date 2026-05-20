@@ -57,6 +57,8 @@ streamlit run app.py
 
 Open the URL shown (e.g. `http://localhost:8501`), sign in, then run tasks.
 
+When a task creates files in your workspace, a **Download outputs (.zip)** button appears on the Agent page after it finishes.
+
 Production / LAN binding:
 
 ```bash

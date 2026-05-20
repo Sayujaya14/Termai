@@ -115,6 +115,7 @@ def run_agent(task: str, user_id: str, callback=None):
     workspace = make_task_workspace(user_id, task)
     console.print(f"[dim]📂 Workspace: {workspace}[/dim]")
     if callback:
+        callback("workspace", workspace)
         callback("thinking", f"Workspace: {workspace}")
 
     memory_ctx = get_memory_context(user_id)
