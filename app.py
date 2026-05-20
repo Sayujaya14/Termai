@@ -2,7 +2,7 @@ import streamlit as st
 import threading
 import queue
 import os
-from memory import get_all_tasks, get_preferences, set_preference
+from memory import get_all_tasks
 from skills import list_skills
 from agent import run_agent
 
@@ -57,6 +57,14 @@ div[data-testid="stTextInput"] input {
     font-family: monospace !important;
     font-size: 14px !important;
 }
+div[data-testid="stTextInput"] input::placeholder {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+div[data-testid="stTextInput"] input::-webkit-input-placeholder {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
 div[data-testid="stTextInput"] input:focus {
     border-color: #89b4fa !important;
     box-shadow: none !important;
@@ -85,13 +93,6 @@ with st.sidebar:
     st.caption("AI Terminal Agent")
     st.divider()
     page = st.radio("Navigate", ["Agent", "Memory", "Skills"], label_visibility="collapsed")
-    st.divider()
-    st.caption("Set Preference")
-    pref_key = st.text_input("Key", placeholder="e.g. output_format")
-    pref_val = st.text_input("Value", placeholder="e.g. html")
-    if st.button("Save Preference") and pref_key and pref_val:
-        set_preference(pref_key, pref_val)
-        st.success(f"Saved: {pref_key} = {pref_val}")
 
 
 # ── Agent Page ───────────────────────────────────────────────────────────────
@@ -107,7 +108,7 @@ if page == "Agent":
 
     def render():
         inner = "\n".join(st.session_state.log_lines) if st.session_state.log_lines else \
-            '<span style="color:#444;font-family:monospace;">Termai is ready. Type a task below...</span>'
+            '<span style="color:#FFFFFF;font-family:monospace;">Termai is ready. Type a task below...</span>'
         terminal_placeholder.markdown(
             f'<div class="terminal-wrap">{inner}</div>',
             unsafe_allow_html=True
@@ -120,19 +121,21 @@ if page == "Agent":
 
     # ── INPUT BAR (bottom, fixed) ──
     st.markdown('<div class="input-wrap">', unsafe_allow_html=True)
-    col1, col2 = st.columns([11, 1])
-    with col1:
-        task = st.text_input(
-            "task", label_visibility="collapsed",
-            placeholder="$ Enter your task and press Run...",
-            disabled=st.session_state.running,
-            key="task_input"
-        )
-    with col2:
-        run_btn = st.button(
-            "▶ Run", type="primary",
-            disabled=st.session_state.running or not (task or "").strip()
-        )
+    with st.form("task_form", clear_on_submit=False, border=False):
+        col1, col2 = st.columns([11, 1])
+        with col1:
+            task = st.text_input(
+                "task", label_visibility="collapsed",
+                placeholder="$ Enter your task and press Enter...",
+                disabled=st.session_state.running,
+            )
+        with col2:
+            run_btn = st.form_submit_button(
+                "▶ Run",
+                type="primary",
+                disabled=st.session_state.running,
+                use_container_width=True,
+            )
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── RUN AGENT ──
@@ -190,13 +193,7 @@ if page == "Agent":
 # ── Memory Page ──────────────────────────────────────────────────────────────
 elif page == "Memory":
     st.title("Memory")
-    prefs = get_preferences()
     tasks = get_all_tasks()
-
-    if prefs:
-        st.subheader("Preferences")
-        for k, v in prefs.items():
-            st.code(f"{k} = {v}", language="text")
 
     st.subheader("Task History")
     if not tasks:

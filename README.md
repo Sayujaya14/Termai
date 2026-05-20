@@ -35,14 +35,11 @@ python main.py "create a eda report on iris dataset"
 # interactive mode
 python main.py
 
-# view task history and preferences
+# view task history
 python main.py memory
 
 # list available skills
 python main.py skills
-
-# set a preference
-python main.py set output_format html
 ```
 
 ## Project Structure

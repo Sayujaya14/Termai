@@ -3,7 +3,6 @@ TOON (Token-Oriented Object Notation) serializer/deserializer.
 
 Format spec:
   @section_name          -> starts a section
-  key=value              -> key-value pair (preferences)
   col1|col2|col3         -> header row for tabular section
   val1|val2|val3         -> data row (no repeated keys)
   # comment              -> ignored
@@ -12,13 +11,6 @@ Format spec:
 
 def dumps(data: dict) -> str:
     lines = []
-
-    # preferences section (key=value)
-    if data.get("preferences"):
-        lines.append("@preferences")
-        for k, v in data["preferences"].items():
-            lines.append(f"{k}={_escape(str(v))}")
-        lines.append("")
 
     # tasks section (tabular)
     if data.get("tasks"):
@@ -34,7 +26,7 @@ def dumps(data: dict) -> str:
 
 
 def loads(text: str) -> dict:
-    data = {"preferences": {}, "tasks": []}
+    data = {"tasks": []}
     section = None
     headers = []
 
@@ -48,12 +40,7 @@ def loads(text: str) -> dict:
             headers = []
             continue
 
-        if section == "preferences":
-            if "=" in line:
-                k, _, v = line.partition("=")
-                data["preferences"][k.strip()] = _unescape(v.strip())
-
-        elif section == "tasks":
+        if section == "tasks":
             cols = [_unescape(c) for c in line.split("|")]
             if not headers:
                 headers = cols

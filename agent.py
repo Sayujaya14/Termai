@@ -108,7 +108,7 @@ def run_agent(task: str, callback=None):
     console.print(f"[dim]📂 Workspace: {workspace}[/dim]")
 
     memory_ctx = get_memory_context()
-    memory_section = f"\n\nMemory (past tasks & preferences):\n{memory_ctx}" if memory_ctx else ""
+    memory_section = f"\n\nMemory (past tasks):\n{memory_ctx}" if memory_ctx else ""
 
     skill = find_skill(task)
     skill_section = f"\n\nRelevant skill guide:\n{skill}" if skill else ""

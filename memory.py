@@ -9,7 +9,7 @@ def _load() -> dict:
     if os.path.exists(MEMORY_FILE):
         with open(MEMORY_FILE, "r") as f:
             return toon.loads(f.read())
-    return {"tasks": [], "preferences": {}}
+    return {"tasks": []}
 
 
 def _save(data: dict):
@@ -38,23 +38,12 @@ def update_summary(task: str, summary: str):
     _save(data)
 
 
-def set_preference(key: str, value: str):
-    data = _load()
-    data["preferences"][key] = value
-    _save(data)
-
-
 def get_memory_context() -> str:
     data = _load()
     lines = []
 
-    if data["preferences"]:
-        lines.append("User preferences:")
-        for k, v in data["preferences"].items():
-            lines.append(f"  - {k}: {v}")
-
     if data["tasks"]:
-        lines.append("\nPrevious tasks:")
+        lines.append("Previous tasks:")
         for t in data["tasks"][-5:]:
             summary = f" → {t['summary']}" if t.get("summary") else ""
             lines.append(f"  [{t['timestamp']}] {t['task']}{summary}")
@@ -65,7 +54,3 @@ def get_memory_context() -> str:
 
 def get_all_tasks() -> list:
     return _load()["tasks"]
-
-
-def get_preferences() -> dict:
-    return _load()["preferences"]
