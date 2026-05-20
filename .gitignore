@@ -5,3 +5,9 @@ __pycache__/
 .env
 memory.toon
 workspaces/
+
+
+test.py
+test.html
+test.txt
+scenario-testing-report (28).html
