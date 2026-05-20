@@ -1,7 +1,8 @@
+import html
 import os
 import queue
 import threading
-import time
+from datetime import timedelta
 
 import streamlit as st
 
@@ -15,6 +16,7 @@ from auth import (
 from memory import get_all_tasks
 from paths import run_startup_migrations, user_workspace_root
 from skills import list_skills
+from ui_styles import inject_global_css, page_header
 
 st.set_page_config(
     page_title="Termai",
@@ -23,103 +25,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-/* Hide menu/footer only — keep header so sidebar open/close works */
-#MainMenu, footer { visibility: hidden; height: 0 !important; }
-header[data-testid="stHeader"] {
-    visibility: visible !important;
-    background: #000000 !important;
-}
-[data-testid="stSidebarCollapsedControl"],
-button[data-testid="stExpandSidebarButton"],
-[data-testid="stSidebar"] button[kind="header"] {
-    visibility: visible !important;
-    display: flex !important;
-    color: #ffffff !important;
-    background: #222 !important;
-    border: 1px solid #444 !important;
-    border-radius: 6px !important;
-    z-index: 10001 !important;
-}
-.block-container { padding-top: 1rem !important; padding-bottom: 0 !important; }
-
-.stApp { background-color: #000000 !important; }
-[data-testid="stSidebar"] {
-    background-color: #000000 !important;
-    border-right: 1px solid #222;
-    min-width: 16rem !important;
-}
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stRadio label {
-    color: #cdd6f4 !important;
-}
-
-.line-tool     { color: #89b4fa; margin: 2px 0; font-family: monospace; font-size: 13px; }
-.line-output   { color: #a6e3a1; margin: 1px 0; font-family: monospace; font-size: 13px; padding-left: 16px; }
-.line-done     { color: #a6e3a1; font-weight: bold; margin: 6px 0 2px 0; font-family: monospace; font-size: 13px; }
-.line-skill    { color: #f9e2af; margin: 2px 0; font-family: monospace; font-size: 13px; }
-.line-thinking { color: #cba6f7; margin: 2px 0; font-family: monospace; font-size: 13px; }
-.line-task     { color: #ffffff; font-weight: bold; margin: 8px 0 6px 0; font-family: monospace; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 6px; }
-.line-error    { color: #f38ba8; margin: 2px 0; font-family: monospace; font-size: 13px; }
-
-.terminal-wrap {
-    background: #0d0d0d;
-    border-radius: 8px;
-    border: 1px solid #222;
-    padding: 16px;
-    min-height: 72vh;
-    max-height: 72vh;
-    overflow-y: auto;
-}
-
-.input-wrap {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #000000;
-    border-top: 1px solid #222;
-    padding: 12px 24px;
-    z-index: 99;
-}
-
-div[data-testid="stTextInput"] input {
-    background: #111111 !important;
-    color: #cdd6f4 !important;
-    border: 1px solid #444 !important;
-    border-radius: 6px !important;
-    font-family: monospace !important;
-    font-size: 14px !important;
-}
-div[data-testid="stTextInput"] input::placeholder {
-    color: #ffffff !important;
-    opacity: 1 !important;
-}
-div[data-testid="stTextInput"] input::-webkit-input-placeholder {
-    color: #ffffff !important;
-    opacity: 1 !important;
-}
-div[data-testid="stTextInput"] input:focus {
-    border-color: #89b4fa !important;
-    box-shadow: none !important;
-}
-
-.stButton > button {
-    background-color: #c0392b !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 6px !important;
-}
-.stButton > button:hover {
-    background-color: #e74c3c !important;
-    color: #ffffff !important;
-}
-
-h1, h2, h3, p, label, .stMarkdown { color: #cdd6f4 !important; }
-</style>
-""", unsafe_allow_html=True)
+inject_global_css()
 
 if not is_logged_in():
     render_login_page()
@@ -129,32 +35,35 @@ user_id = get_current_user_id()
 user_name = st.session_state.get("user_name", user_id)
 run_startup_migrations()
 
+_pages = ["Agent", "Memory", "Skills"]
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "Agent"
+
 with st.sidebar:
-    st.title("🤖 Termai")
-    st.caption(f"Signed in as **{user_name}** (`{user_id}`)")
-    if st.button("Sign out", use_container_width=True):
-        logout_session()
-        st.rerun()
-    st.divider()
-    _pages = ["Agent", "Memory", "Skills"]
-    if "nav_page" not in st.session_state:
-        st.session_state.nav_page = "Agent"
+    st.markdown(
+        '<p class="brand-title">Termai</p><p class="brand-sub">AI terminal agent</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<span class="user-chip">Signed in as <strong>{html.escape(user_name)}</strong> '
+        f'({html.escape(user_id)})</span>',
+        unsafe_allow_html=True,
+    )
     page = st.radio(
-        "Navigate",
+        "Menu",
         _pages,
         index=_pages.index(st.session_state.nav_page),
         key="sidebar_nav",
+        label_visibility="collapsed",
     )
     st.session_state.nav_page = page
+    st.divider()
+    if st.button("Sign out", use_container_width=True, type="secondary"):
+        logout_session()
+        st.rerun()
 
-# Fallback nav in main area (always visible if sidebar is collapsed)
-_nav_cols = st.columns(3)
-for i, name in enumerate(["Agent", "Memory", "Skills"]):
-    with _nav_cols[i]:
-        if st.button(name, key=f"nav_{name}", use_container_width=True):
-            st.session_state.nav_page = name
-            st.rerun()
 page = st.session_state.nav_page
+
 
 def _append_agent_event(event_type: str, content: str):
     if not content and event_type != "done":
@@ -172,8 +81,8 @@ def _append_agent_event(event_type: str, content: str):
         line = f'<div class="line-done">✅ {safe}</div>'
     elif event_type == "cost":
         line = (
-            f'<div style="color:#6c6c6c;font-family:monospace;font-size:12px;margin:2px 0;">'
-            f"🪙 {safe}</div>"
+            f'<div style="color:#6c6c6c;font-family:JetBrains Mono,monospace;'
+            f'font-size:12px;margin:2px 0;">🪙 {safe}</div>'
         )
     elif event_type == "error":
         line = f'<div class="line-error">✗ {safe}</div>'
@@ -197,63 +106,131 @@ def _drain_agent_queue():
         _append_agent_event(event_type, content)
 
 
+def _terminal_inner_html() -> str:
+    if st.session_state.get("log_lines"):
+        return "\n".join(st.session_state.log_lines)
+    return (
+        '<div class="terminal-empty">'
+        "<span>$</span> Ready — describe a task below and press "
+        "<span>Run</span> or Enter."
+        "</div>"
+    )
+
+
+def _render_terminal():
+    ph = st.session_state.get("terminal_ph")
+    if ph is None:
+        return
+    ph.markdown(
+        f'<div class="terminal-wrap">{_terminal_inner_html()}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _agent_thread_finished() -> bool:
+    thread = st.session_state.get("agent_thread")
+    return thread is None or not thread.is_alive()
+
+
+def _finish_agent_run():
+    _drain_agent_queue()
+    st.session_state.running = False
+    st.session_state.pop("agent_thread", None)
+    st.session_state.pop("agent_queue", None)
+    st.session_state.pop("agent_done", None)
+    from memory import sync_workspaces_to_memory
+
+    uid = get_current_user_id()
+    if uid:
+        sync_workspaces_to_memory(uid)
+
+
+def _maybe_finish_agent_run(*, rerun_after: bool = False) -> bool:
+    """Return True if the run was finished (clears running lock)."""
+    if not st.session_state.get("running"):
+        return False
+    if not _agent_thread_finished():
+        return False
+    _finish_agent_run()
+    if rerun_after:
+        st.rerun()
+    return True
+
+
+@st.fragment(run_every=timedelta(seconds=0.35))
+def poll_agent_terminal():
+    """Refresh terminal while agent runs; only active on Agent page."""
+    if st.session_state.get("nav_page") != "Agent":
+        return
+    if st.session_state.get("terminal_ph") is None:
+        return
+
+    if st.session_state.get("running"):
+        _drain_agent_queue()
+
+    _render_terminal()
+
+    if _maybe_finish_agent_run(rerun_after=True):
+        return
+
+
+def _render_task_cards(tasks: list) -> None:
+    cards = []
+    for t in reversed(tasks):
+        ws = t.get("workspace", "")
+        title = html.escape(t.get("task", ""))
+        ts = html.escape(t.get("timestamp", ""))
+        summary = html.escape((t.get("summary") or "")[:300])
+        if ws.startswith("(chat"):
+            meta = '<span class="badge-chat">Chat only</span>'
+        else:
+            meta = f'<div class="task-card-meta">📂 {html.escape(ws)}</div>'
+        summary_block = (
+            f'<div class="task-card-summary">{summary}</div>' if summary else ""
+        )
+        cards.append(
+            f'<div class="task-card">'
+            f'<div class="task-card-head">'
+            f'<p class="task-card-title">{title}</p>'
+            f'<span class="task-card-time">{ts}</span></div>'
+            f"{meta}{summary_block}</div>"
+        )
+    st.markdown(
+        f'<div class="task-grid">{"".join(cards)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 if page == "Agent":
+    page_header("Agent", "Run tasks — code, shell, and files in your private workspace.")
+
     if "log_lines" not in st.session_state:
         st.session_state.log_lines = []
     if "running" not in st.session_state:
         st.session_state.running = False
 
-    terminal_placeholder = st.empty()
-
-    def render_terminal():
-        inner = "\n".join(st.session_state.log_lines) if st.session_state.log_lines else \
-            '<span style="color:#FFFFFF;font-family:monospace;">Termai is ready. Type a task below...</span>'
-        terminal_placeholder.markdown(
-            f'<div class="terminal-wrap">{inner}</div>',
-            unsafe_allow_html=True,
-        )
-
-    def finish_agent_run():
-        _drain_agent_queue()
-        st.session_state.running = False
-        st.session_state.pop("agent_thread", None)
-        st.session_state.pop("agent_queue", None)
-        st.session_state.pop("agent_done", None)
-        st.session_state.pop("_poll_ts", None)
-        from memory import sync_workspaces_to_memory
-
-        sync_workspaces_to_memory(user_id)
-
-    render_terminal()
-
+    # Fragment updates session state but not the form — finish + rerun here too
     if st.session_state.running:
         _drain_agent_queue()
-        render_terminal()
-        thread = st.session_state.get("agent_thread")
-        if thread and not thread.is_alive():
-            finish_agent_run()
-            render_terminal()
-        else:
-            now = time.time()
-            if now - st.session_state.get("_poll_ts", 0) >= 0.4:
-                st.session_state._poll_ts = now
-                st.rerun()
+    _maybe_finish_agent_run(rerun_after=True)
 
-    st.markdown("<div style='height:80px'></div>", unsafe_allow_html=True)
+    st.session_state.terminal_ph = st.empty()
+    poll_agent_terminal()
 
-    st.markdown('<div class="input-wrap">', unsafe_allow_html=True)
+    st.markdown("<div style='height:88px'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="input-bar">', unsafe_allow_html=True)
     with st.form("task_form", clear_on_submit=False, border=False):
         col1, col2 = st.columns([11, 1])
         with col1:
             task = st.text_input(
                 "task",
                 label_visibility="collapsed",
-                placeholder="$ Enter your task and press Enter...",
+                placeholder="Describe your task…",
                 disabled=st.session_state.running,
             )
         with col2:
             run_btn = st.form_submit_button(
-                "▶ Run",
+                "Run",
                 type="primary",
                 disabled=st.session_state.running,
                 use_container_width=True,
@@ -285,46 +262,77 @@ if page == "Agent":
         thread = threading.Thread(target=run, daemon=True)
         st.session_state.agent_thread = thread
         thread.start()
+        st.rerun()
 
 elif page == "Memory":
+    st.session_state.pop("terminal_ph", None)
     if st.session_state.get("running"):
-        st.info("Agent is still running in the background. Open **Agent** to see live output.")
-    st.title("Memory")
-    st.caption(f"Storage: `memory/{user_id}.toon` · Workspaces: `workspaces/{user_id}/`")
+        st.info("Agent is still running. Open **Agent** from the sidebar for live output.")
+
+    page_header(
+        "Memory",
+        f"Your task history and workspaces · memory/{user_id}.toon",
+    )
+
     tasks = get_all_tasks(user_id)
     user_ws = user_workspace_root(user_id)
     try:
-        task_dirs = [
+        folder_count = len([
             d for d in os.listdir(user_ws)
             if os.path.isdir(os.path.join(user_ws, d)) and not d.startswith(".")
-        ]
-        st.caption(f"{len(task_dirs)} workspace folder(s) on disk")
+        ])
     except OSError:
-        pass
+        folder_count = 0
 
-    st.subheader("Task History")
+    st.markdown(
+        f"""
+        <div class="stat-row">
+            <div class="stat-pill"><strong>{len(tasks)}</strong> tasks in memory</div>
+            <div class="stat-pill"><strong>{folder_count}</strong> workspace folders</div>
+            <div class="stat-pill"><strong>{user_id}</strong> user scope</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if not tasks:
-        st.info("No tasks yet.")
+        st.markdown(
+            """
+            <div class="task-card" style="text-align:center;padding:2rem;">
+                <p style="color:#8b8fa8;margin:0;">No tasks yet.</p>
+                <p style="color:#6c9eff;margin:0.5rem 0 0;font-size:0.85rem;">
+                    Run something on the Agent page to build history.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
-        for t in reversed(tasks):
-            with st.expander(f"[{t['timestamp']}] {t['task']}"):
-                ws = t.get("workspace", "")
-                if ws.startswith("(chat"):
-                    st.caption("💬 Chat only — no workspace files")
-                else:
-                    st.caption(f"📂 {ws}")
-                if t.get("summary"):
-                    st.write(t["summary"])
+        _render_task_cards(tasks)
 
 elif page == "Skills":
-    st.title("Skills")
+    st.session_state.pop("terminal_ph", None)
+    page_header("Skills", "Guides the agent loads when your task matches trigger keywords.")
+
     skills = list_skills()
     if not skills:
-        st.info("No skills found in skills/ folder.")
+        st.info("No skills in the `skills/` folder yet.")
     else:
+        cards = []
         for s in skills:
-            with st.expander(f"📖 {s['title']}  —  `{s['file']}`"):
-                st.caption("Trigger keywords: " + ", ".join(s["keywords"]))
+            kws = ", ".join(html.escape(k) for k in s["keywords"][:6])
+            cards.append(
+                f'<div class="skill-card">'
+                f'<h3>{html.escape(s["title"])}</h3>'
+                f'<p class="skill-kw"><code>{html.escape(s["file"])}</code><br>'
+                f"Triggers: {kws}</p></div>"
+            )
+        st.markdown(f'<div class="skill-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+        st.divider()
+        st.caption("Full skill documents")
+        for s in skills:
+            with st.expander(s["title"]):
                 skill_path = os.path.join(
                     os.path.dirname(os.path.abspath(__file__)), "skills", s["file"]
                 )

@@ -106,21 +106,35 @@ def logout_session() -> None:
 def render_login_page() -> None:
     import streamlit as st
 
-    st.markdown("## 🤖 Termai")
-    st.caption("Sign in to continue")
+    from ui_styles import inject_global_css
+
+    inject_global_css()
+
+    st.markdown(
+        """
+        <div class="login-wrap">
+            <div class="login-logo">Termai</div>
+            <div class="login-tagline">AI coding agent with terminal access</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if not users_file_ready():
         st.error(
-            f"No users configured. Copy `users.json.example` to `users.json` "
-            f"or set TERMAI_USERS_FILE."
+            "No users configured. Copy `users.json.example` to `users.json`."
         )
         st.code("cp users.json.example users.json", language="bash")
         return
 
-    with st.form("login_form"):
-        username = st.text_input("Username", placeholder="alice")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Sign in", type="primary", use_container_width=True)
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        with st.form("login_form"):
+            username = st.text_input("Username", placeholder="alice")
+            password = st.text_input("Password", type="password", placeholder="••••••••")
+            submitted = st.form_submit_button(
+                "Sign in", type="primary", use_container_width=True
+            )
 
     if submitted:
         if not username.strip() or not password:
