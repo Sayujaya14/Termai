@@ -4,15 +4,37 @@ from datetime import datetime
 from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
-from config import MODEL, MAX_TOKENS, SYSTEM_PROMPT, API_KEY, BASE_URL, calculate_cost
+from config import MODEL,FALLBACK_MODEL, OPENAI_API_KEY, OPENAI_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_BASE_URL, MAX_TOKENS, SYSTEM_PROMPT, calculate_cost
 from tools import TOOLS, handle_tool
 from memory import get_memory_context, save_task, update_summary
 from paths import make_task_workspace
 from skills import find_skill
 
-client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+client = None
+
+fallback_client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
 console = Console()
 
+def create_chat_completion(**kwargs):
+    """
+    OpenAI -> OpenRouter fallback
+    """
+    if client is not None:
+
+        try:
+            return client.chat.completions.create(**kwargs)
+
+        except Exception as openai_error:
+
+            console.print(
+                f"[yellow]⚠ OpenAI failed:[/yellow] {openai_error}"
+            )
+
+   
+    kwargs["model"] = FALLBACK_MODEL
+
+
+    return fallback_client.chat.completions.create(**kwargs)
 
 def get_role(m) -> str:
     return m.get("role") if isinstance(m, dict) else m.role
@@ -64,15 +86,23 @@ def answer_directly(task: str, user_id: str, callback=None):
     """Answer simple questions without workspace, tools or file creation."""
     memory_label = _chat_memory_label()
     save_task(user_id, task, memory_label)
-
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=[
+    try :
+        response = create_chat_completion(
+            model=MODEL,
+            messages=[
             {"role": "system", "content": "You are a helpful assistant. Answer the question concisely in plain text. Do NOT create any files, do NOT use any tools, do NOT write code unless explicitly asked."},
             {"role": "user", "content": task}
-        ]
-        # no tools passed — so LLM physically cannot call any
-    )
+            ]
+        )
+    except Exception as e:
+        response = create_chat_completion(
+            model=FALLBACK_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant. Answer the question concisely in plain text. Do NOT create any files, do NOT use any tools, do NOT write code unless explicitly asked."},
+                {"role": "user", "content": task}
+            ]
+        )
+    # no tools passed — so LLM physically cannot call any
     answer = response.choices[0].message.content or ""
     input_tokens = response.usage.prompt_tokens if response.usage else 0
     output_tokens = response.usage.completion_tokens if response.usage else 0
@@ -140,7 +170,7 @@ def run_agent(task: str, user_id: str, callback=None):
             callback("thinking", f"Thinking... (step {step})")
 
         with console.status(f"[bold cyan]Thinking... (step {step})[/bold cyan]", spinner="dots"):
-            response = client.chat.completions.create(
+            response = create_chat_completion(
                 model=MODEL,
                 tools=TOOLS,
                 messages=messages
