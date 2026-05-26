@@ -224,7 +224,53 @@ if page == "Agent":
     page_header("Agent", "Run tasks — code, shell, and files in your private workspace.")
 
     if "log_lines" not in st.session_state:
-        st.session_state.log_lines = []
+        st.session_state.log_lines = [
+        """
+<div style="
+    color:#00ff88;
+    font-family:'JetBrains Mono',monospace;
+    padding:12px 0;
+    line-height:1.25;
+    white-space:pre;
+    text-shadow:0 0 8px rgba(0,255,136,0.35);
+    overflow-x:auto;
+">
+
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║ ████████╗███████╗██████╗ ███╗   ███╗ █████╗ ██╗              ║
+║ ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██╔══██╗██║              ║
+║    ██║   █████╗  ██████╔╝██╔████╔██║███████║██║              ║
+║    ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██╔══██║██║              ║
+║    ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║  ██║██║              ║
+║    ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝              ║
+║                                                              ║
+║                 Welcome to TermAI                            ║
+║              AI Terminal Coding Agent                        ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+</div>
+        """,
+
+        """
+<div style="
+    color:#6c6c6c;
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    margin-top:8px;
+    line-height:1.5;
+">
+
+$ System initialized<br>
+$ OpenRouter fallback ready<br>
+$ Workspace manager online<br>
+$ Memory engine connected<br>
+$ Awaiting task input...
+
+</div>
+        """
+    ]
     if "running" not in st.session_state:
         st.session_state.running = False
 
