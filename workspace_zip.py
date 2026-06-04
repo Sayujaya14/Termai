@@ -1,4 +1,6 @@
-"""Zip task workspace folders for download."""
+"""
+Package a task workspace directory into a zip for download from the web UI.
+"""
 
 import io
 import os
@@ -8,7 +10,8 @@ import zipfile
 def zip_workspace(workspace_path: str) -> tuple[bytes, str] | None:
     """
     Zip all files under workspace_path.
-    Returns (zip_bytes, filename) or None if folder missing/empty.
+
+    Returns (zip_bytes, filename) or None if the folder is missing or empty.
     """
     workspace_path = os.path.abspath(workspace_path)
     if not os.path.isdir(workspace_path):

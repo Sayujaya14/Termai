@@ -10,6 +10,7 @@ Format spec:
 
 
 def dumps(data: dict) -> str:
+    """Serialize {tasks: [...]} to TOON text for disk storage."""
     lines = []
 
     # tasks section (tabular)
@@ -26,7 +27,7 @@ def dumps(data: dict) -> str:
 
 
 def _split_row(line: str) -> list[str]:
-    """Split on | but not on escaped \\|."""
+    """Split a TOON table row on |, respecting escaped \\|."""
     parts: list[str] = []
     buf: list[str] = []
     i = 0
@@ -47,6 +48,7 @@ def _split_row(line: str) -> list[str]:
 
 
 def loads(text: str) -> dict:
+    """Parse TOON text back into {tasks: [...]}."""
     data = {"tasks": []}
     section = None
     headers = []
@@ -72,9 +74,10 @@ def loads(text: str) -> dict:
 
 
 def _escape(value: str) -> str:
-    # escape pipe and newline so tabular structure stays intact
+    """Escape pipe and newline so tabular rows stay parseable."""
     return value.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "\\n")
 
 
 def _unescape(value: str) -> str:
+    """Reverse _escape for a single cell value."""
     return value.replace("\\n", "\n").replace("\\|", "|").replace("\\\\", "\\")

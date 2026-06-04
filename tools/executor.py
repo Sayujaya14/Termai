@@ -1,3 +1,9 @@
+"""
+Shell command execution for the run_command tool.
+
+Streams output to console/UI and blocks dangerous patterns from config.
+"""
+
 import subprocess
 import os
 from rich.console import Console
@@ -12,10 +18,16 @@ console = Console()
 
 
 def is_dangerous(command: str) -> bool:
+    """True if command contains any DANGEROUS_PATTERNS substring."""
     return any(p in command for p in DANGEROUS_PATTERNS)
 
 
 def run_command(command: str, cwd: str = None, callback=None) -> str:
+    """
+    Run a shell command; return combined stdout/stderr text.
+
+    Web UI blocks dangerous commands; CLI may prompt for confirmation.
+    """
     work_dir = cwd or os.getcwd()
 
     if is_dangerous(command):

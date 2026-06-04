@@ -13,6 +13,7 @@ USERNAME_RE = re.compile(r"^[a-z][a-z0-9_]{2,31}$")
 
 
 def _load_users_raw() -> dict:
+    """Load users.json as a dict (empty if missing or invalid)."""
     if not os.path.exists(USERS_FILE):
         return {}
     with open(USERS_FILE, "r") as f:
@@ -21,6 +22,7 @@ def _load_users_raw() -> dict:
 
 
 def load_users() -> dict[str, dict]:
+    """Return validated users: username -> {name, password_hash}."""
     users = {}
     for username, info in _load_users_raw().items():
         if not USERNAME_RE.match(username):
@@ -35,6 +37,7 @@ def load_users() -> dict[str, dict]:
 
 
 def verify_password(username: str, password: str) -> bool:
+    """Check plaintext password against stored bcrypt hash."""
     users = load_users()
     user = users.get(username)
     if not user:
@@ -49,6 +52,7 @@ def verify_password(username: str, password: str) -> bool:
 
 
 def authenticate(username: str, password: str) -> dict | None:
+    """On success return {user_id, name}; otherwise None."""
     username = username.strip().lower()
     if not USERNAME_RE.match(username):
         return None
@@ -59,16 +63,19 @@ def authenticate(username: str, password: str) -> dict | None:
 
 
 def hash_password(password: str) -> str:
+    """Generate bcrypt hash for users.json (CLI: python auth.py hash-password)."""
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def users_file_ready() -> bool:
+    """True if at least one valid user exists in users.json."""
     return bool(load_users())
 
 
 # ── Streamlit session helpers ────────────────────────────────────────────────
 
 def is_logged_in() -> bool:
+    """True when Streamlit session has authenticated user_id."""
     import streamlit as st
 
     return bool(
@@ -78,6 +85,7 @@ def is_logged_in() -> bool:
 
 
 def get_current_user_id() -> str | None:
+    """Logged-in username for the current Streamlit session."""
     import streamlit as st
 
     if is_logged_in():
@@ -86,6 +94,7 @@ def get_current_user_id() -> str | None:
 
 
 def login_session(username: str) -> None:
+    """Store auth state in st.session_state after successful login."""
     import streamlit as st
 
     user = load_users()[username]
@@ -97,6 +106,7 @@ def login_session(username: str) -> None:
 
 
 def logout_session() -> None:
+    """Clear all Streamlit session state (sign out)."""
     import streamlit as st
 
     for key in list(st.session_state.keys()):
@@ -104,6 +114,7 @@ def logout_session() -> None:
 
 
 def render_login_page() -> None:
+    """Render the sign-in form when the user is not authenticated."""
     import streamlit as st
 
     from ui_styles import inject_global_css

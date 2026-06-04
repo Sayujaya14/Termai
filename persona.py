@@ -1,4 +1,9 @@
-"""OpenClaw-style persona/bootstrap files per user agent home."""
+"""
+OpenClaw-style persona/bootstrap files per user agent home.
+
+Templates live in templates/persona/; copies are seeded under workspaces/<user>/.
+build_system_prompt() injects them into the LLM system message.
+"""
 
 import os
 from datetime import datetime, timedelta
@@ -32,6 +37,7 @@ EDITABLE_FILES = [name for name, _ in CORE_FILES + OPTIONAL_FILES]
 
 
 def _apply_user_display(template: str, display_name: str) -> str:
+    """Substitute {{USER_DISPLAY_NAME}} in USER.md template."""
     result = template.replace(USER_DISPLAY_PLACEHOLDER, display_name)
     if USER_DISPLAY_PLACEHOLDER in result:
         raise ValueError("USER.md template contains unresolved display-name placeholder")
@@ -39,10 +45,12 @@ def _apply_user_display(template: str, display_name: str) -> str:
 
 
 def _template_path(filename: str) -> str:
+    """Path to shipped template for a bootstrap filename."""
     return os.path.join(TEMPLATES_DIR, filename)
 
 
 def _read_file(path: str) -> str | None:
+    """Read UTF-8 file or None if missing."""
     if not os.path.isfile(path):
         return None
     with open(path, "r", encoding="utf-8") as f:
@@ -50,6 +58,7 @@ def _read_file(path: str) -> str | None:
 
 
 def _truncate(text: str, limit: int) -> str:
+    """Cap bootstrap section size for prompt token budget."""
     if len(text) <= limit:
         return text
     return text[: limit - 20] + "\n\n[... truncated ...]"
@@ -104,6 +113,7 @@ def ensure_persona_files(user_id: str, display_name: str | None = None) -> str:
 
 
 def read_persona_file(user_id: str, filename: str) -> str | None:
+    """Read one editable bootstrap file for the Persona UI."""
     user_id = validate_user_id(user_id)
     if filename not in EDITABLE_FILES:
         raise ValueError(f"Invalid persona file: {filename!r}")
@@ -111,6 +121,7 @@ def read_persona_file(user_id: str, filename: str) -> str | None:
 
 
 def write_persona_file(user_id: str, filename: str, content: str) -> None:
+    """Save edited bootstrap content from the Persona page."""
     user_id = validate_user_id(user_id)
     if filename not in EDITABLE_FILES:
         raise ValueError(f"Invalid persona file: {filename!r}")

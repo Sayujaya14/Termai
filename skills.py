@@ -1,10 +1,16 @@
+"""
+Skill guides: markdown files in skills/ with trigger keywords.
+
+When a task matches keywords, the skill instructions are injected into the agent prompt.
+"""
+
 import os
 
 SKILLS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills")
 
 
 def _parse_skill(content: str) -> dict:
-    """Split skill into keywords and instructions (strips trigger section)."""
+    """Parse SKILL.md into keywords list and instruction body (without trigger section)."""
     keywords = []
     instructions_lines = []
     in_keywords = False
@@ -23,11 +29,12 @@ def _parse_skill(content: str) -> dict:
 
     return {
         "keywords": keywords,
-        "instructions": "\n".join(instructions_lines).strip()
+        "instructions": "\n".join(instructions_lines).strip(),
     }
 
 
 def find_skill(task: str) -> str | None:
+    """Return skill instructions if any keyword appears in the task text."""
     if not os.path.exists(SKILLS_DIR):
         return None
 
@@ -45,6 +52,7 @@ def find_skill(task: str) -> str | None:
 
 
 def list_skills() -> list[dict]:
+    """List all skills for the Skills page / CLI (file, title, keywords)."""
     skills = []
     if not os.path.exists(SKILLS_DIR):
         return skills

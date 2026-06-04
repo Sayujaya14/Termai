@@ -1,3 +1,9 @@
+"""
+Core agent loop: LLM chat with tools, simple-query fast path, persona/memory/skills.
+
+run_agent() is the main entry used by Streamlit (app.py) and CLI (main.py).
+"""
+
 import json
 import os
 import re
@@ -13,6 +19,7 @@ from skills import find_skill
 from persona import build_system_prompt, ensure_persona_files
 
 def _make_client(api_key: str | None, base_url: str | None) -> OpenAI | None:
+    """Build OpenAI-compatible client or None if API key is missing."""
     if not api_key or not api_key.strip():
         return None
     return OpenAI(api_key=api_key.strip(), base_url=(base_url or "https://api.openai.com/v1").rstrip("/"))
@@ -46,10 +53,12 @@ def create_chat_completion(**kwargs):
     )
 
 def get_role(m) -> str:
+    """Extract message role from dict or OpenAI message object."""
     return m.get("role") if isinstance(m, dict) else m.role
 
 
 def trim_messages(messages: list) -> list:
+    """Drop oldest non-system messages when context exceeds MAX_TOKENS budget."""
     system = [m for m in messages if get_role(m) == "system"]
     rest = [m for m in messages if get_role(m) != "system"]
     total = sum(len(str(m)) for m in rest)
@@ -76,6 +85,7 @@ ACTION_KEYWORDS = [
 
 
 def is_simple_query(task: str) -> bool:
+    """True for Q&A-style prompts without action keywords (skips tools/workspace)."""
     t = task.strip().lower()
     # strip leading greeting words like "hi", "hello", "hey"
     for greet in GREETINGS:
@@ -88,10 +98,12 @@ def is_simple_query(task: str) -> bool:
 
 
 def _chat_memory_label() -> str:
+    """Synthetic workspace label for chat-only runs (no files on disk)."""
     return f"(chat/{datetime.now().strftime('%Y%m%d_%H%M%S')})"
 
 
 def _user_display_name(user_id: str) -> str:
+    """Friendly name from users.json for persona templates."""
     try:
         from auth import load_users
         return load_users().get(user_id, {}).get("name", user_id)
@@ -149,6 +161,12 @@ def answer_directly(task: str, user_id: str, callback=None):
 
 
 def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] | None = None):
+    """
+    Run a full coding task: workspace, tools, persona, memory, optional upload.
+
+    callback(event_type, content) streams events to the web UI (thinking, tool, done, …).
+    upload is (filename, bytes) from web or CLI --file.
+    """
     if is_simple_query(task):
         console.print(f"[dim]💬 Simple query — answering directly[/dim]")
         if callback:

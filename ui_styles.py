@@ -4,6 +4,7 @@ import html
 
 
 def inject_global_css() -> None:
+    """Inject dark theme CSS (sidebar, terminal, forms, login, cards)."""
     import streamlit as st
 
     st.markdown(
@@ -374,6 +375,7 @@ h1, h2, h3, p, label, .stMarkdown { color: var(--text); }
 
 
 def page_header(title: str, subtitle: str = "") -> None:
+    """Styled page title + optional subtitle for Agent, Memory, Persona, Skills."""
     import streamlit as st
 
     sub = f"<p>{html.escape(subtitle)}</p>" if subtitle else ""

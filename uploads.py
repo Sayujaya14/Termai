@@ -1,4 +1,8 @@
-"""Save user-uploaded CSV/XLSX into the task workspace."""
+"""
+Handle user-uploaded datasets (CSV / XLSX) for agent tasks.
+
+Files are saved into the current task workspace and described in the LLM prompt.
+"""
 
 import os
 import re
@@ -8,6 +12,7 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 def save_upload(workspace: str, filename: str, data: bytes) -> str:
+    """Write upload bytes into workspace; returns absolute path."""
     if len(data) > MAX_UPLOAD_BYTES:
         raise ValueError(f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)")
     ext = os.path.splitext(filename)[1].lower()
@@ -22,6 +27,7 @@ def save_upload(workspace: str, filename: str, data: bytes) -> str:
 
 
 def upload_prompt_section(path: str) -> str:
+    """Text block injected into the user message so the LLM knows the dataset path."""
     ext = os.path.splitext(path)[1].lower()
     reader = "pd.read_csv" if ext == ".csv" else "pd.read_excel (pip install openpyxl if needed)"
     return (

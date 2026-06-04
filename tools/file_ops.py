@@ -1,3 +1,9 @@
+"""
+File tools: read, write, patch, list.
+
+Writes and patches are sandboxed to the active task workspace via resolve_writable_path.
+"""
+
 import os
 import difflib
 from rich.console import Console
@@ -9,6 +15,7 @@ console = Console()
 
 
 def read_file(path: str) -> str:
+    """Read file contents as UTF-8 text for the LLM."""
     try:
         with open(path, "r") as f:
             content = f.read()
@@ -19,6 +26,7 @@ def read_file(path: str) -> str:
 
 
 def write_file(path: str, content: str) -> str:
+    """Create or overwrite a file inside the task workspace only."""
     try:
         abs_path = resolve_writable_path(path)
         parent = os.path.dirname(abs_path)
@@ -48,6 +56,7 @@ def write_file(path: str, content: str) -> str:
 
 
 def patch_file(path: str, old_str: str, new_str: str) -> str:
+    """Replace first occurrence of old_str in file (workspace-sandboxed)."""
     try:
         abs_path = resolve_writable_path(path)
         with open(abs_path, "r") as f:
@@ -79,6 +88,7 @@ def patch_file(path: str, old_str: str, new_str: str) -> str:
 
 
 def list_directory(path: str) -> str:
+    """List directory entries with folder/file icons."""
     try:
         entries = []
         for entry in sorted(os.scandir(path), key=lambda e: (not e.is_dir(), e.name)):

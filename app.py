@@ -1,3 +1,10 @@
+"""
+Streamlit web UI for Termai.
+
+Pages: Agent (terminal + run), Persona (bootstrap files), Memory, Skills.
+Runs run_agent() in a background thread and polls events into the terminal view.
+"""
+
 import html
 import os
 import queue
@@ -73,6 +80,7 @@ page = st.session_state.nav_page
 
 
 def _append_agent_event(event_type: str, content: str):
+    """Convert agent callback events into HTML lines in session log_lines."""
     if not content and event_type != "done":
         return
     safe = (content or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -101,6 +109,7 @@ def _append_agent_event(event_type: str, content: str):
 
 
 def _announce_uploaded_file(filename: str) -> None:
+    """Show 'File: name.csv' once in the terminal when user attaches a dataset."""
     if st.session_state.get("announced_upload") == filename:
         return
     st.session_state.announced_upload = filename
@@ -108,6 +117,7 @@ def _announce_uploaded_file(filename: str) -> None:
 
 
 def _drain_agent_queue():
+    """Pull all pending (event_type, content) tuples from the agent thread queue."""
     q = st.session_state.get("agent_queue")
     if not q:
         return
@@ -125,6 +135,7 @@ def _drain_agent_queue():
 
 
 def _terminal_inner_html() -> str:
+    """Join log_lines into HTML for the terminal panel."""
     if st.session_state.get("log_lines"):
         return "\n".join(st.session_state.log_lines)
     return (
@@ -136,6 +147,7 @@ def _terminal_inner_html() -> str:
 
 
 def _render_terminal():
+    """Update the terminal placeholder with current log HTML."""
     ph = st.session_state.get("terminal_ph")
     if ph is None:
         return
@@ -146,6 +158,7 @@ def _render_terminal():
 
 
 def _agent_thread_finished() -> bool:
+    """True when the background run_agent thread has exited."""
     thread = st.session_state.get("agent_thread")
     return thread is None or not thread.is_alive()
 
@@ -169,6 +182,7 @@ def _prepare_task_download():
 
 
 def _finish_agent_run():
+    """Clear running state, zip outputs, sync memory after agent thread ends."""
     _drain_agent_queue()
     _prepare_task_download()
     st.session_state.running = False
@@ -214,6 +228,7 @@ def poll_agent_terminal():
 
 
 def _render_task_cards(tasks: list) -> None:
+    """Render Memory page task cards from get_all_tasks() rows."""
     cards = []
     for t in reversed(tasks):
         ws = t.get("workspace", "")

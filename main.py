@@ -1,3 +1,9 @@
+"""
+CLI entry point for Termai.
+
+Commands: login, memory, skills, persona, setup, or a task string (--file for uploads).
+"""
+
 import getpass
 import os
 import sys
@@ -17,6 +23,7 @@ console = Console()
 
 
 def _parse_cli_upload(args: list[str]) -> tuple[tuple[str, bytes] | None, list[str]]:
+    """Extract --file path from argv; returns (upload_tuple, remaining_args)."""
     upload = None
     rest = []
     i = 0
@@ -33,6 +40,7 @@ def _parse_cli_upload(args: list[str]) -> tuple[tuple[str, bytes] | None, list[s
 
 
 def show_memory(user_id: str):
+    """Print task history table for the memory subcommand."""
     tasks = get_all_tasks(user_id)
 
     if tasks:
@@ -48,6 +56,7 @@ def show_memory(user_id: str):
 
 
 def cli_login() -> str:
+    """Interactive username/password prompt; returns user_id."""
     if not users_file_ready():
         console.print("[red]No users.json found. Copy users.json.example to users.json.[/red]")
         sys.exit(1)
@@ -61,6 +70,7 @@ def cli_login() -> str:
 
 
 def main():
+    """Parse argv, authenticate, dispatch to run_agent or subcommands."""
     args = sys.argv[1:]
     user_id, args = cli_resolve_user(args)
 

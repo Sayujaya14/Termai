@@ -1,3 +1,9 @@
+"""
+LLM tool definitions and dispatcher.
+
+TOOLS is the OpenAI function schema; handle_tool() routes calls and sets workspace sandbox.
+"""
+
 from tools.executor import run_command
 from tools.file_ops import read_file, write_file, patch_file, list_directory
 
@@ -88,6 +94,11 @@ TOOL_MAP = {
 
 
 def handle_tool(name: str, inputs: dict, callback=None, workspace: str | None = None) -> str:
+    """
+    Execute a tool by name and return string result for the LLM.
+
+    Sets task workspace context so write_file/patch_file stay inside the run folder.
+    """
     from tools.workspace import set_task_workspace
 
     fn = TOOL_MAP.get(name)

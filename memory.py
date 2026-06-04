@@ -1,3 +1,10 @@
+"""
+Per-user task history stored as TOON files under memory/<user_id>.toon.
+
+Records task text, workspace path, timestamp, and optional summary.
+Also syncs orphan workspace folders from disk into memory.
+"""
+
 import os
 import re
 import threading
@@ -14,6 +21,7 @@ _locks_guard = threading.Lock()
 
 
 def _user_lock(user_id: str) -> threading.Lock:
+    """Per-user lock so concurrent agent threads do not corrupt the same .toon file."""
     with _locks_guard:
         if user_id not in _locks:
             _locks[user_id] = threading.Lock()
@@ -21,12 +29,14 @@ def _user_lock(user_id: str) -> threading.Lock:
 
 
 def _memory_path(user_id: str) -> str:
+    """Absolute path to memory/<user_id>.toon."""
     user_id = validate_user_id(user_id)
     os.makedirs(MEMORY_DIR, exist_ok=True)
     return os.path.join(MEMORY_DIR, f"{user_id}.toon")
 
 
 def _load(user_id: str) -> dict:
+    """Parse user's TOON file into {tasks: [...]}."""
     path = _memory_path(user_id)
     if os.path.exists(path):
         with open(path, "r") as f:
@@ -35,12 +45,14 @@ def _load(user_id: str) -> dict:
 
 
 def _save(user_id: str, data: dict):
+    """Write task history back to the user's TOON file."""
     path = _memory_path(user_id)
     with open(path, "w") as f:
         f.write(toon.dumps(data))
 
 
 def save_task(user_id: str, task: str, workspace: str, summary: str = ""):
+    """Append a new task row (keeps last 20). Called at start of each agent run."""
     user_id = validate_user_id(user_id)
     with _user_lock(user_id):
         data = _load(user_id)
@@ -67,6 +79,7 @@ def update_summary(user_id: str, workspace: str, summary: str):
 
 
 def get_memory_context(user_id: str) -> str:
+    """Formatted text of recent tasks for injection into the agent user message."""
     user_id = validate_user_id(user_id)
     data = _load(user_id)
     lines = []
@@ -82,6 +95,7 @@ def get_memory_context(user_id: str) -> str:
 
 
 def _task_label_from_folder(folder_name: str) -> str:
+    """Derive human-readable task label from workspace folder name (strip timestamp)."""
     label = _WORKSPACE_TS.sub("", folder_name)
     return label.replace("_", " ").strip() or folder_name
 
@@ -119,6 +133,7 @@ def sync_workspaces_to_memory(user_id: str) -> None:
 
 
 def get_all_tasks(user_id: str) -> list:
+    """All tasks for Memory page / CLI (syncs disk first)."""
     user_id = validate_user_id(user_id)
     sync_workspaces_to_memory(user_id)
     return _load(user_id)["tasks"]
