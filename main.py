@@ -8,7 +8,9 @@ from rich.table import Table
 from agent import run_agent
 from auth import authenticate, cli_resolve_user, users_file_ready
 from memory import get_all_tasks
+from persona import ensure_persona_files, list_persona_files
 from skills import list_skills
+from paths import user_agent_home
 
 console = Console()
 
@@ -89,6 +91,31 @@ def main():
             for s in skills:
                 table.add_row(s["file"], s["title"], ", ".join(s["keywords"][:4]))
             console.print(table)
+
+    elif args[0] == "persona":
+        from auth import load_users
+        display = load_users().get(user_id, {}).get("name", user_id)
+        ensure_persona_files(user_id, display)
+        home = user_agent_home(user_id)
+        table = Table(title=f"Persona files ({user_id})", border_style="cyan")
+        table.add_column("File", style="cyan")
+        table.add_column("Description", style="white")
+        table.add_column("Status", style="dim")
+        for row in list_persona_files(user_id):
+            table.add_row(
+                row["file"],
+                row["description"],
+                "present" if row["exists"] else "missing",
+            )
+        console.print(table)
+        console.print(f"[dim]Agent home: {home}[/dim]")
+        console.print("[dim]Edit files in the Persona page (web UI) or directly on disk.[/dim]")
+
+    elif args[0] == "setup":
+        from auth import load_users
+        display = load_users().get(user_id, {}).get("name", user_id)
+        home = ensure_persona_files(user_id, display)
+        console.print(f"[green]✓ Persona files ready at:[/green] {home}")
 
     else:
         run_agent(" ".join(args), user_id=user_id)

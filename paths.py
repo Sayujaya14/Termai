@@ -10,6 +10,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKSPACES_ROOT = os.path.join(BASE_DIR, "workspaces")
 MEMORY_DIR = os.path.join(BASE_DIR, "memory")
 
+# Subdirs of the user agent home that are not task workspaces
+AGENT_HOME_SUBDIRS = frozenset({"memory", "avatars", "skills", "canvas"})
+
+
+def is_task_workspace_dir(name: str) -> bool:
+    return bool(name) and not name.startswith(".") and name not in AGENT_HOME_SUBDIRS
+
 
 def validate_user_id(user_id: str) -> str:
     user_id = user_id.strip().lower()
@@ -23,6 +30,11 @@ def user_workspace_root(user_id: str) -> str:
     path = os.path.join(WORKSPACES_ROOT, user_id)
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def user_agent_home(user_id: str) -> str:
+    """Per-user agent home for persona/bootstrap files (OpenClaw-style workspace root)."""
+    return user_workspace_root(user_id)
 
 
 def make_task_workspace(user_id: str, task: str) -> str:

@@ -5,7 +5,7 @@ from datetime import datetime
 
 import toon
 
-from paths import MEMORY_DIR, user_workspace_root, validate_user_id
+from paths import MEMORY_DIR, user_workspace_root, validate_user_id, is_task_workspace_dir
 
 _WORKSPACE_TS = re.compile(r"_\d{8}_\d{6}$")
 
@@ -99,7 +99,7 @@ def sync_workspaces_to_memory(user_id: str) -> None:
         known_names = {os.path.basename(p.rstrip("/")) for p in known_paths if p}
 
         for name in sorted(os.listdir(root)):
-            if name.startswith("."):
+            if not is_task_workspace_dir(name):
                 continue
             path = os.path.join(root, name)
             if not os.path.isdir(path):

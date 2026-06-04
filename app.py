@@ -14,7 +14,14 @@ from auth import (
     render_login_page,
 )
 from memory import get_all_tasks
-from paths import user_workspace_root
+from paths import user_agent_home, user_workspace_root, is_task_workspace_dir
+from persona import (
+    ensure_persona_files,
+    list_persona_files,
+    read_persona_file,
+    reset_persona_file,
+    write_persona_file,
+)
 from skills import list_skills
 from ui_styles import inject_global_css, page_header
 from workspace_zip import zip_workspace
@@ -34,7 +41,7 @@ if not is_logged_in():
 
 user_id = get_current_user_id()
 user_name = st.session_state.get("user_name", user_id)
-_pages = ["Agent", "Memory", "Skills"]
+_pages = ["Agent", "Persona", "Memory", "Skills"]
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "Agent"
 
@@ -360,7 +367,7 @@ elif page == "Memory":
     try:
         folder_count = len([
             d for d in os.listdir(user_ws)
-            if os.path.isdir(os.path.join(user_ws, d)) and not d.startswith(".")
+            if os.path.isdir(os.path.join(user_ws, d)) and is_task_workspace_dir(d)
         ])
     except OSError:
         folder_count = 0
@@ -390,6 +397,79 @@ elif page == "Memory":
         )
     else:
         _render_task_cards(tasks)
+
+elif page == "Persona":
+    st.session_state.pop("terminal_ph", None)
+    page_header(
+        "Persona",
+        "OpenClaw-style bootstrap files — injected into every agent session.",
+    )
+
+    ensure_persona_files(user_id, user_name)
+    agent_home = user_agent_home(user_id)
+    persona_files = list_persona_files(user_id)
+
+    st.markdown(
+        f"""
+        <div class="stat-row">
+            <div class="stat-pill"><strong>{len(persona_files)}</strong> bootstrap files</div>
+            <div class="stat-pill"><code>{html.escape(agent_home)}</code></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    file_labels = {
+        row["file"]: f"{row['file']} — {row['description']}"
+        for row in persona_files
+    }
+    if "persona_selected_file" not in st.session_state:
+        st.session_state.persona_selected_file = "AGENTS.md"
+
+    selected = st.selectbox(
+        "Bootstrap file",
+        options=list(file_labels.keys()),
+        format_func=lambda f: file_labels[f],
+        key="persona_file_select",
+    )
+
+    st.caption(f"Path: `{os.path.join(agent_home, selected)}`")
+    current = read_persona_file(user_id, selected) or ""
+    edited = st.text_area(
+        "Content",
+        value=current,
+        height=420,
+        key=f"persona_editor_{selected}",
+        label_visibility="collapsed",
+    )
+
+    col_save, col_reset, _col_hint = st.columns([1, 1, 2])
+    with col_save:
+        if st.button("Save", type="primary", use_container_width=True):
+            write_persona_file(user_id, selected, edited)
+            st.success(f"Saved {selected}")
+    with col_reset:
+        if st.button("Reset to template", use_container_width=True):
+            reset_persona_file(user_id, selected, user_name)
+            st.rerun()
+    with _col_hint:
+        st.caption(
+            "AGENTS.md · SOUL.md · USER.md · IDENTITY.md · TOOLS.md load every session. "
+            "Optional: BOOTSTRAP.md (first run), MEMORY.md, memory/YYYY-MM-DD.md."
+        )
+
+    st.divider()
+    cards = []
+    for row in persona_files:
+        status = "✓" if row["exists"] else "—"
+        kind = "core" if row["core"] else "optional"
+        cards.append(
+            f'<div class="skill-card">'
+            f'<h3>{html.escape(row["file"])} {status}</h3>'
+            f'<p class="skill-kw">{html.escape(row["description"])}<br>'
+            f'<span style="color:#6c9eff">{kind}</span></p></div>'
+        )
+    st.markdown(f'<div class="skill-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
 
 elif page == "Skills":
     st.session_state.pop("terminal_ph", None)

@@ -7,34 +7,42 @@ from rich.panel import Panel
 from config import MODEL,FALLBACK_MODEL, OPENAI_API_KEY, OPENAI_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_BASE_URL, MAX_TOKENS, SYSTEM_PROMPT, calculate_cost
 from tools import TOOLS, handle_tool
 from memory import get_memory_context, save_task, update_summary
-from paths import make_task_workspace
+from paths import make_task_workspace, user_agent_home
 from skills import find_skill
+from persona import build_system_prompt, ensure_persona_files
 
-client = None
+def _make_client(api_key: str | None, base_url: str | None) -> OpenAI | None:
+    if not api_key or not api_key.strip():
+        return None
+    return OpenAI(api_key=api_key.strip(), base_url=(base_url or "https://api.openai.com/v1").rstrip("/"))
 
-fallback_client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
+
+client = _make_client(OPENAI_API_KEY, OPENAI_BASE_URL)
+fallback_client = _make_client(OPENROUTER_API_KEY, OPENROUTER_BASE_URL)
 console = Console()
+
 
 def create_chat_completion(**kwargs):
     """
-    OpenAI -> OpenRouter fallback
+    Primary API (OPENAI_*) -> OpenRouter fallback when configured.
     """
     if client is not None:
-
         try:
             return client.chat.completions.create(**kwargs)
-
         except Exception as openai_error:
+            console.print(f"[yellow]⚠ Primary API failed:[/yellow] {openai_error}")
+            if fallback_client is None:
+                raise
 
-            console.print(
-                f"[yellow]⚠ OpenAI failed:[/yellow] {openai_error}"
-            )
+    if fallback_client is not None:
+        kwargs = dict(kwargs)
+        kwargs["model"] = FALLBACK_MODEL
+        return fallback_client.chat.completions.create(**kwargs)
 
-   
-    kwargs["model"] = FALLBACK_MODEL
-
-
-    return fallback_client.chat.completions.create(**kwargs)
+    raise RuntimeError(
+        "No API key configured. Set OPENAI_API_KEY (and OPENAI_BASE_URL) in .env, "
+        "or OPENROUTER_API_KEY for fallback."
+    )
 
 def get_role(m) -> str:
     return m.get("role") if isinstance(m, dict) else m.role
@@ -82,25 +90,41 @@ def _chat_memory_label() -> str:
     return f"(chat/{datetime.now().strftime('%Y%m%d_%H%M%S')})"
 
 
+def _user_display_name(user_id: str) -> str:
+    try:
+        from auth import load_users
+        return load_users().get(user_id, {}).get("name", user_id)
+    except Exception:
+        return user_id
+
+
 def answer_directly(task: str, user_id: str, callback=None):
     """Answer simple questions without workspace, tools or file creation."""
     memory_label = _chat_memory_label()
     save_task(user_id, task, memory_label)
-    try :
+    display = _user_display_name(user_id)
+    ensure_persona_files(user_id, display)
+    system = build_system_prompt(user_id, SYSTEM_PROMPT, chat_only=True)
+    chat_system = (
+        system
+        + "\n\nFor this message: answer concisely in plain text. "
+        "Do NOT create files, do NOT use tools, do NOT write code unless explicitly asked."
+    )
+    try:
         response = create_chat_completion(
             model=MODEL,
             messages=[
-            {"role": "system", "content": "You are a helpful assistant. Answer the question concisely in plain text. Do NOT create any files, do NOT use any tools, do NOT write code unless explicitly asked."},
-            {"role": "user", "content": task}
-            ]
+                {"role": "system", "content": chat_system},
+                {"role": "user", "content": task},
+            ],
         )
-    except Exception as e:
+    except Exception:
         response = create_chat_completion(
             model=FALLBACK_MODEL,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant. Answer the question concisely in plain text. Do NOT create any files, do NOT use any tools, do NOT write code unless explicitly asked."},
-                {"role": "user", "content": task}
-            ]
+                {"role": "system", "content": chat_system},
+                {"role": "user", "content": task},
+            ],
         )
     # no tools passed — so LLM physically cannot call any
     answer = response.choices[0].message.content or ""
@@ -129,6 +153,10 @@ def run_agent(task: str, user_id: str, callback=None):
         answer_directly(task, user_id, callback)
         return
 
+    display = _user_display_name(user_id)
+    ensure_persona_files(user_id, display)
+    agent_home = user_agent_home(user_id)
+
     workspace = make_task_workspace(user_id, task)
     console.print(f"[dim]📂 Workspace: {workspace}[/dim]")
     if callback:
@@ -147,9 +175,17 @@ def run_agent(task: str, user_id: str, callback=None):
 
     save_task(user_id, task, workspace)
 
+    system_content = build_system_prompt(user_id, SYSTEM_PROMPT)
+    user_content = (
+        f"Task workspace (save all scripts and outputs here): {workspace}\n"
+        f"Agent home (persona + memory files): {agent_home}\n"
+        f"Always use absolute paths. Task outputs must start with {workspace}/"
+        f"{memory_section}{skill_section}\n\nTask: {task}"
+    )
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Workspace folder: {workspace}\nAll scripts AND output files must be saved inside: {workspace}\nAlways use absolute paths starting with {workspace}/{memory_section}{skill_section}\n\nTask: {task}"}
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_content},
     ]
 
     console.print(Panel(

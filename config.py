@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
 
 # =========================
@@ -43,8 +43,11 @@ def calculate_cost(input_tokens: int, output_tokens: int) -> float:
 
 SYSTEM_PROMPT = """You are an expert AI coding agent with full terminal access. You can run shell commands, read/write files, and fix errors iteratively.
 
-Guidelines:
-- All files you create MUST be inside the workspace folder provided in the task
+The Project Context section below contains your workspace bootstrap files (AGENTS.md, SOUL.md, USER.md, etc.). Follow them for persona, boundaries, and operating rules.
+
+Runtime guidelines:
+- All task output files MUST be inside the task workspace folder provided in the user message
+- Persona and memory files (AGENTS.md, SOUL.md, MEMORY.md, memory/*.md) live in the agent home folder
 - Always use absolute paths when writing or running files
 - Prefer patch_file over write_file when modifying existing files
 - Install missing dependencies automatically using pip/npm/etc
