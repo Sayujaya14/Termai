@@ -104,7 +104,9 @@ def answer_directly(task: str, user_id: str, callback=None):
     save_task(user_id, task, memory_label)
     display = _user_display_name(user_id)
     ensure_persona_files(user_id, display)
-    system = build_system_prompt(user_id, SYSTEM_PROMPT, chat_only=True)
+    system = build_system_prompt(
+        user_id, SYSTEM_PROMPT, chat_only=True, display_name=display
+    )
     chat_system = (
         system
         + "\n\nFor this message: answer concisely in plain text. "
@@ -175,7 +177,7 @@ def run_agent(task: str, user_id: str, callback=None):
 
     save_task(user_id, task, workspace)
 
-    system_content = build_system_prompt(user_id, SYSTEM_PROMPT)
+    system_content = build_system_prompt(user_id, SYSTEM_PROMPT, display_name=display)
     user_content = (
         f"Task workspace (save all scripts and outputs here): {workspace}\n"
         f"Agent home (persona + memory files): {agent_home}\n"
@@ -245,7 +247,9 @@ def run_agent(task: str, user_id: str, callback=None):
                 console.print(f"\n[bold cyan]🔧 Tool:[/bold cyan] [yellow]{name}[/yellow]")
                 if callback:
                     callback("tool", f"{name}: {json.dumps(inputs)[:200]}")
-                result = handle_tool(name, inputs, callback=callback)
+                result = handle_tool(
+                    name, inputs, callback=callback, workspace=workspace
+                )
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,

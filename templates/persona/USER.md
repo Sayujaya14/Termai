@@ -2,8 +2,8 @@
 
 Learn about the person you're helping. Update this as you go.
 
-- **Name:** {display_name}
-- **What to call them:** {display_name}
+- **Name:** {{USER_DISPLAY_NAME}}
+- **What to call them:** {{USER_DISPLAY_NAME}}
 - **Pronouns:** (optional)
 - **Timezone:** (optional)
 - **Notes:**

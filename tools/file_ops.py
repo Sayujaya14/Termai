@@ -1,6 +1,7 @@
 import os
 import difflib
 from rich.console import Console
+from tools.workspace import resolve_writable_path
 from rich.panel import Panel
 from rich.syntax import Syntax
 
@@ -19,8 +20,10 @@ def read_file(path: str) -> str:
 
 def write_file(path: str, content: str) -> str:
     try:
-        abs_path = os.path.abspath(path)
-        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+        abs_path = resolve_writable_path(path)
+        parent = os.path.dirname(abs_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
 
         if os.path.exists(abs_path):
             with open(abs_path, "r") as f:
@@ -46,7 +49,8 @@ def write_file(path: str, content: str) -> str:
 
 def patch_file(path: str, old_str: str, new_str: str) -> str:
     try:
-        with open(path, "r") as f:
+        abs_path = resolve_writable_path(path)
+        with open(abs_path, "r") as f:
             content = f.read()
 
         if old_str not in content:
@@ -66,10 +70,10 @@ def patch_file(path: str, old_str: str, new_str: str) -> str:
                 border_style="yellow"
             ))
 
-        with open(path, "w") as f:
+        with open(abs_path, "w") as f:
             f.write(patched)
-        console.print(f"[green]✓ Patched:[/green] {path}")
-        return f"Patched {path} successfully"
+        console.print(f"[green]✓ Patched:[/green] {abs_path}")
+        return f"Patched {abs_path} successfully"
     except Exception as e:
         return f"Error: {e}"
 

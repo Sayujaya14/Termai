@@ -1,11 +1,11 @@
 """OpenClaw-style persona/bootstrap files per user agent home."""
 
 import os
-import re
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from paths import user_agent_home, validate_user_id
+
+USER_DISPLAY_PLACEHOLDER = "{{USER_DISPLAY_NAME}}"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates", "persona")
@@ -30,7 +30,12 @@ OPTIONAL_FILES = [
 
 EDITABLE_FILES = [name for name, _ in CORE_FILES + OPTIONAL_FILES]
 
-_FILE_RE = re.compile(r"^[A-Z][A-Z0-9_]*\.md$")
+
+def _apply_user_display(template: str, display_name: str) -> str:
+    result = template.replace(USER_DISPLAY_PLACEHOLDER, display_name)
+    if USER_DISPLAY_PLACEHOLDER in result:
+        raise ValueError("USER.md template contains unresolved display-name placeholder")
+    return result
 
 
 def _template_path(filename: str) -> str:
@@ -91,7 +96,7 @@ def ensure_persona_files(user_id: str, display_name: str | None = None) -> str:
         if template is None:
             continue
         if filename == "USER.md":
-            template = template.replace("{display_name}", label)
+            template = _apply_user_display(template, label)
         with open(dest, "w", encoding="utf-8") as f:
             f.write(template)
 
@@ -100,14 +105,14 @@ def ensure_persona_files(user_id: str, display_name: str | None = None) -> str:
 
 def read_persona_file(user_id: str, filename: str) -> str | None:
     user_id = validate_user_id(user_id)
-    if filename not in EDITABLE_FILES or not _FILE_RE.match(filename):
+    if filename not in EDITABLE_FILES:
         raise ValueError(f"Invalid persona file: {filename!r}")
     return _read_file(os.path.join(user_agent_home(user_id), filename))
 
 
 def write_persona_file(user_id: str, filename: str, content: str) -> None:
     user_id = validate_user_id(user_id)
-    if filename not in EDITABLE_FILES or not _FILE_RE.match(filename):
+    if filename not in EDITABLE_FILES:
         raise ValueError(f"Invalid persona file: {filename!r}")
     agent_home = user_agent_home(user_id)
     os.makedirs(agent_home, exist_ok=True)
@@ -125,7 +130,7 @@ def reset_persona_file(user_id: str, filename: str, display_name: str | None = N
     if template is None:
         raise FileNotFoundError(f"No template for {filename}")
     if filename == "USER.md":
-        template = template.replace("{display_name}", display_name or user_id)
+        template = _apply_user_display(template, display_name or user_id)
     write_persona_file(user_id, filename, template)
 
 
@@ -169,12 +174,14 @@ def build_project_context(user_id: str, *, include_optional: bool = True) -> str
         total_chars += len(block)
         return True
 
-    for filename, description in CORE_FILES:
+    for filename, _description in CORE_FILES:
         content = _read_file(os.path.join(agent_home, filename))
         if content is None:
-            _add_section(filename, f"[{filename} not found — using defaults]")
+            body = f"[{filename} not found — using defaults]"
         else:
-            _add_section(filename, content)
+            body = content
+        if not _add_section(filename, body):
+            break
 
     if include_optional:
         for filename, _description in OPTIONAL_FILES:
@@ -198,7 +205,13 @@ def build_project_context(user_id: str, *, include_optional: bool = True) -> str
     return "# Project Context\n\n" + "\n\n".join(sections)
 
 
-def build_system_prompt(user_id: str, base_prompt: str, *, chat_only: bool = False) -> str:
+def build_system_prompt(
+    user_id: str,
+    base_prompt: str,
+    *,
+    chat_only: bool = False,
+    display_name: str | None = None,
+) -> str:
     """
     Combine runtime system prompt with injected bootstrap files.
     chat_only: lighter injection (SOUL + USER + IDENTITY) for simple Q&A.
@@ -206,7 +219,7 @@ def build_system_prompt(user_id: str, base_prompt: str, *, chat_only: bool = Fal
     from config import SYSTEM_PROMPT
 
     base = base_prompt or SYSTEM_PROMPT
-    ensure_persona_files(user_id)
+    ensure_persona_files(user_id, display_name)
     agent_home = user_agent_home(user_id)
 
     if chat_only:

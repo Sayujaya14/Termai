@@ -87,10 +87,16 @@ TOOL_MAP = {
 }
 
 
-def handle_tool(name: str, inputs: dict, callback=None) -> str:
+def handle_tool(name: str, inputs: dict, callback=None, workspace: str | None = None) -> str:
+    from tools.workspace import set_task_workspace
+
     fn = TOOL_MAP.get(name)
     if not fn:
         return f"Unknown tool: {name}"
-    if name == "run_command" and callback:
-        return fn(**inputs, callback=callback)
-    return fn(**inputs)
+    set_task_workspace(workspace)
+    try:
+        if name == "run_command" and callback:
+            return fn(**inputs, callback=callback)
+        return fn(**inputs)
+    finally:
+        set_task_workspace(None)
