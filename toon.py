@@ -10,16 +10,24 @@ Format spec:
 
 
 def dumps(data: dict) -> str:
-    """Serialize {tasks: [...]} to TOON text for disk storage."""
+    """Serialize {tasks: [...], chat: [...]} to TOON text for disk storage."""
     lines = []
 
-    # tasks section (tabular)
     if data.get("tasks"):
         lines.append("@tasks")
         headers = ["timestamp", "task", "workspace", "summary"]
         lines.append("|".join(headers))
         for t in data["tasks"]:
             row = [_escape(str(t.get(h, ""))) for h in headers]
+            lines.append("|".join(row))
+        lines.append("")
+
+    if data.get("chat"):
+        lines.append("@chat")
+        headers = ["timestamp", "user", "assistant", "workspace"]
+        lines.append("|".join(headers))
+        for turn in data["chat"]:
+            row = [_escape(str(turn.get(h, ""))) for h in headers]
             lines.append("|".join(row))
         lines.append("")
 
@@ -48,10 +56,10 @@ def _split_row(line: str) -> list[str]:
 
 
 def loads(text: str) -> dict:
-    """Parse TOON text back into {tasks: [...]}."""
-    data = {"tasks": []}
+    """Parse TOON text back into {tasks: [...], chat: [...]}."""
+    data: dict = {"tasks": [], "chat": []}
     section = None
-    headers = []
+    headers: list[str] = []
 
     for raw in text.splitlines():
         line = raw.strip()
@@ -63,12 +71,14 @@ def loads(text: str) -> dict:
             headers = []
             continue
 
-        if section == "tasks":
-            cols = _split_row(line)
-            if not headers:
-                headers = cols
-            elif len(cols) == len(headers):
-                data["tasks"].append(dict(zip(headers, cols)))
+        if section not in ("tasks", "chat"):
+            continue
+
+        cols = _split_row(line)
+        if not headers:
+            headers = cols
+        elif len(cols) == len(headers):
+            data[section].append(dict(zip(headers, cols)))
 
     return data
 

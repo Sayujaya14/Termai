@@ -26,6 +26,12 @@ FALLBACK_MODEL = "openai/gpt-4o-mini"
 COMMAND_TIMEOUT = 120  # seconds for shell commands
 MAX_TOKENS = 80000  # rough context budget for message trimming
 
+# Cross-run conversation memory (ChatGPT-style), stored in memory/<user>.toon @chat
+CONVERSATION_MAX_TURNS = int(os.getenv("TERMAI_CONVERSATION_MAX_TURNS", "15"))
+CONVERSATION_MAX_CHARS = int(os.getenv("TERMAI_CONVERSATION_MAX_CHARS", "24000"))
+CONVERSATION_USER_MAX = 4000  # max chars stored per user message in history
+CONVERSATION_ASSISTANT_MAX = 8000  # max chars stored per assistant reply in history
+
 # Substrings that trigger safety checks in run_command
 DANGEROUS_PATTERNS = [
     "rm -rf", "rm -f", "mkfs", "dd if=",

@@ -20,7 +20,11 @@ from auth import (
     logout_session,
     render_login_page,
 )
-from memory import get_all_tasks
+from memory import (
+    clear_conversation_memory,
+    get_all_tasks,
+    get_conversation_turn_count,
+)
 from paths import user_agent_home, user_workspace_root, is_task_workspace_dir
 from persona import (
     ensure_persona_files,
@@ -411,6 +415,17 @@ elif page == "Memory":
         f"Your task history and workspaces · memory/{user_id}.toon",
     )
 
+    chat_turns = get_conversation_turn_count(user_id)
+
+    if st.button(
+        "Clear conversation memory",
+        help="Removes ChatGPT-style message history between runs. Task list and workspaces stay.",
+        type="secondary",
+    ):
+        clear_conversation_memory(user_id)
+        st.success("Conversation memory cleared.")
+        st.rerun()
+
     tasks = get_all_tasks(user_id)
     user_ws = user_workspace_root(user_id)
     try:
@@ -425,6 +440,7 @@ elif page == "Memory":
         f"""
         <div class="stat-row">
             <div class="stat-pill"><strong>{len(tasks)}</strong> tasks in memory</div>
+            <div class="stat-pill"><strong>{chat_turns}</strong> conversation turns</div>
             <div class="stat-pill"><strong>{folder_count}</strong> workspace folders</div>
             <div class="stat-pill"><strong>{user_id}</strong> user scope</div>
         </div>
