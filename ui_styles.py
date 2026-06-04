@@ -235,6 +235,7 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
 .line-skill    { color: var(--yellow); margin: 2px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .line-thinking { color: var(--purple); margin: 2px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .line-task     { color: var(--text); font-weight: 600; margin: 8px 0 6px 0; font-family: 'JetBrains Mono', monospace; font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.line-file     { color: var(--accent); margin: 4px 0 6px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .line-error    { color: var(--red); margin: 2px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 
 .terminal-wrap {
@@ -263,6 +264,35 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     border-top: 1px solid var(--border);
     padding: 14px 24px 18px;
     z-index: 99;
+}
+
+/* Paperclip attach column (popover button) */
+.input-bar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-of-type(2) {
+    flex: 0 0 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
+}
+.input-bar [data-testid="stColumn"]:nth-of-type(2) [data-testid="stPopoverButton"] > button,
+.input-bar [data-testid="stColumn"]:nth-of-type(2) > div > button {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+    font-size: 1.1rem !important;
+    line-height: 1 !important;
+    background: var(--accent) !important;
+    color: #0a0a0f !important;
+    border: none !important;
+    border-radius: var(--radius) !important;
+}
+.input-bar [data-testid="stColumn"]:nth-of-type(2) [data-testid="stPopoverButton"] > button:hover {
+    background: var(--accent-hover) !important;
+    color: #0a0a0f !important;
+}
+/* Popover panel: hide 200MB limit text */
+[data-testid="stPopoverBody"] [data-testid="stFileUploader"] small,
+[data-testid="stPopoverBody"] [data-testid="stCaptionContainer"] {
+    display: none !important;
 }
 
 /* Inputs & buttons */

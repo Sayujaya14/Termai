@@ -1,4 +1,5 @@
 import getpass
+import os
 import sys
 
 from rich.console import Console
@@ -13,6 +14,22 @@ from skills import list_skills
 from paths import user_agent_home
 
 console = Console()
+
+
+def _parse_cli_upload(args: list[str]) -> tuple[tuple[str, bytes] | None, list[str]]:
+    upload = None
+    rest = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--file" and i + 1 < len(args):
+            path = os.path.abspath(args[i + 1])
+            with open(path, "rb") as f:
+                upload = (os.path.basename(path), f.read())
+            i += 2
+        else:
+            rest.append(args[i])
+            i += 1
+    return upload, rest
 
 
 def show_memory(user_id: str):
@@ -118,7 +135,14 @@ def main():
         console.print(f"[green]✓ Persona files ready at:[/green] {home}")
 
     else:
-        run_agent(" ".join(args), user_id=user_id)
+        upload, rest = _parse_cli_upload(args)
+        task = " ".join(rest).strip() or (
+            "Analyze the uploaded data file." if upload else ""
+        )
+        if not task:
+            console.print("[red]Provide a task or --file path.[/red]")
+            sys.exit(1)
+        run_agent(task, user_id=user_id, upload=upload)
 
 
 if __name__ == "__main__":

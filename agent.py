@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from datetime import datetime
 from openai import OpenAI
@@ -147,7 +148,7 @@ def answer_directly(task: str, user_id: str, callback=None):
                         title="[bold green]✅ Answer[/bold green]", border_style="green"))
 
 
-def run_agent(task: str, user_id: str, callback=None):
+def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] | None = None):
     if is_simple_query(task):
         console.print(f"[dim]💬 Simple query — answering directly[/dim]")
         if callback:
@@ -164,6 +165,17 @@ def run_agent(task: str, user_id: str, callback=None):
     if callback:
         callback("workspace", workspace)
         callback("thinking", f"Workspace: {workspace}")
+
+    upload_section = ""
+    if upload:
+        from uploads import save_upload, upload_prompt_section
+
+        name, data = upload
+        path = save_upload(workspace, name, data)
+        upload_section = upload_prompt_section(path)
+        console.print(f"[dim]📎 Uploaded: {path}[/dim]")
+        if callback:
+            callback("thinking", f"📎 Uploaded: {os.path.basename(path)}")
 
     memory_ctx = get_memory_context(user_id)
     memory_section = f"\n\nMemory (past tasks):\n{memory_ctx}" if memory_ctx else ""
@@ -182,7 +194,7 @@ def run_agent(task: str, user_id: str, callback=None):
         f"Task workspace (save all scripts and outputs here): {workspace}\n"
         f"Agent home (persona + memory files): {agent_home}\n"
         f"Always use absolute paths. Task outputs must start with {workspace}/"
-        f"{memory_section}{skill_section}\n\nTask: {task}"
+        f"{upload_section}{memory_section}{skill_section}\n\nTask: {task}"
     )
 
     messages = [

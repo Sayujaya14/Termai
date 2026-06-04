@@ -23,6 +23,7 @@ from persona import (
     write_persona_file,
 )
 from skills import list_skills
+from ui_attach import attach_file_picker
 from ui_styles import inject_global_css, page_header
 from workspace_zip import zip_workspace
 
@@ -92,9 +93,18 @@ def _append_agent_event(event_type: str, content: str):
         )
     elif event_type == "error":
         line = f'<div class="line-error">✗ {safe}</div>'
+    elif event_type == "file":
+        line = f'<div class="line-file">File: {safe}</div>'
     else:
         return
     st.session_state.log_lines.append(line)
+
+
+def _announce_uploaded_file(filename: str) -> None:
+    if st.session_state.get("announced_upload") == filename:
+        return
+    st.session_state.announced_upload = filename
+    _append_agent_event("file", filename)
 
 
 def _drain_agent_queue():
@@ -164,6 +174,9 @@ def _finish_agent_run():
     st.session_state.running = False
     st.session_state.pop("agent_thread", None)
     st.session_state.pop("agent_queue", None)
+    st.session_state.pop("announced_upload", None)
+    st.session_state.pop("pending_upload", None)
+    st.session_state.pop("agent_attach_uploader", None)
     from memory import sync_workspaces_to_memory
 
     uid = get_current_user_id()
@@ -280,6 +293,10 @@ $ Awaiting task input...
     ]
     if "running" not in st.session_state:
         st.session_state.running = False
+    if "pending_upload" not in st.session_state:
+        st.session_state.pending_upload = None
+    if "announced_upload" not in st.session_state:
+        st.session_state.announced_upload = None
 
     # Fragment updates session state but not the form — finish + rerun here too
     if st.session_state.running:
@@ -305,26 +322,37 @@ $ Awaiting task input...
 
     st.markdown("<div style='height:88px'></div>", unsafe_allow_html=True)
     st.markdown('<div class="input-bar">', unsafe_allow_html=True)
-    with st.form("task_form", clear_on_submit=False, border=False):
-        col1, col2 = st.columns([11, 1])
-        with col1:
-            task = st.text_input(
-                "task",
-                label_visibility="collapsed",
-                placeholder="Describe your task…",
-                disabled=st.session_state.running,
-            )
-        with col2:
-            run_btn = st.form_submit_button(
-                "Run",
-                type="primary",
-                disabled=st.session_state.running,
-                use_container_width=True,
-            )
+    col_task, col_attach, col_run = st.columns([10, 1, 1], vertical_alignment="bottom")
+    with col_attach:
+        picked = attach_file_picker(disabled=st.session_state.running)
+        if picked is not None:
+            st.session_state.pending_upload = picked
+            _announce_uploaded_file(picked[0])
+    with col_task:
+        task = st.text_input(
+            "task",
+            label_visibility="collapsed",
+            placeholder="Describe your task… (e.g. do an EDA on the uploaded file)",
+            disabled=st.session_state.running,
+            key="agent_task_input",
+        )
+    with col_run:
+        run_btn = st.button(
+            "Run",
+            type="primary",
+            disabled=st.session_state.running,
+            use_container_width=True,
+            key="agent_run_btn",
+        )
     st.markdown("</div>", unsafe_allow_html=True)
 
-    if run_btn and (task or "").strip() and not st.session_state.running:
-        safe_task = task.strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    task_text = (task or "").strip()
+    run_upload = st.session_state.get("pending_upload")
+
+    if run_btn and not st.session_state.running and (task_text or run_upload):
+        if not task_text:
+            task_text = "Analyze the uploaded data file."
+        safe_task = task_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         st.session_state.log_lines.append(f'<div class="line-task">$ {safe_task}</div>')
         st.session_state.pop("task_zip", None)
         st.session_state.pop("task_zip_name", None)
@@ -337,11 +365,17 @@ $ Awaiting task input...
             event_queue.put((event_type, content))
 
         run_user_id = user_id
-        run_task = task.strip()
+        run_task = task_text
+        captured_upload = run_upload
 
         def run():
             try:
-                run_agent(run_task, user_id=run_user_id, callback=callback)
+                run_agent(
+                    run_task,
+                    user_id=run_user_id,
+                    callback=callback,
+                    upload=captured_upload,
+                )
             except Exception as e:
                 callback("error", str(e))
             finally:
