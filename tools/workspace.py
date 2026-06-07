@@ -30,19 +30,24 @@ def resolve_writable_path(path: str) -> str:
     """
     Resolve path and ensure it is inside the active task workspace.
 
+    Relative paths are resolved against the workspace root (not process cwd).
+
     Raises ValueError if no workspace is set or the path escapes the root.
     """
     root = get_task_workspace()
     if not root:
         raise ValueError("No task workspace is active for this write.")
 
-    abs_path = os.path.abspath(path)
     root = os.path.abspath(root)
+    if os.path.isabs(path):
+        abs_path = os.path.abspath(path)
+    else:
+        abs_path = os.path.abspath(os.path.join(root, path))
 
     if abs_path == root or abs_path.startswith(root + os.sep):
         return abs_path
 
     raise ValueError(
         f"Path is outside the task workspace: {path!r}. "
-        f"Writes must stay under {root}/"
+        f"Writes must stay under the active task workspace."
     )

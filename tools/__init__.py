@@ -12,12 +12,12 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "run_command",
-            "description": "Execute a shell command in the terminal and stream its output.",
+            "description": "Execute a shell command in the terminal and stream its output. Defaults to the task workspace as working directory.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "command": {"type": "string", "description": "The shell command to run"},
-                    "cwd": {"type": "string", "description": "Working directory (optional)"}
+                    "cwd": {"type": "string", "description": "Working directory (optional; defaults to task workspace)"}
                 },
                 "required": ["command"]
             }
@@ -106,8 +106,13 @@ def handle_tool(name: str, inputs: dict, callback=None, workspace: str | None = 
         return f"Unknown tool: {name}"
     set_task_workspace(workspace)
     try:
-        if name == "run_command" and callback:
-            return fn(**inputs, callback=callback)
+        if name == "run_command":
+            inputs = dict(inputs)
+            if not inputs.get("cwd") and workspace:
+                inputs["cwd"] = workspace
+            if callback:
+                return run_command(**inputs, callback=callback)
+            return run_command(**inputs)
         return fn(**inputs)
     finally:
         set_task_workspace(None)

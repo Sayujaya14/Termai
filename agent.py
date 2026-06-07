@@ -21,7 +21,7 @@ from memory import (
     sync_tasks_to_chat,
     update_summary,
 )
-from paths import make_task_workspace, user_agent_home
+from paths import make_task_workspace, user_agent_home, workspace_display_name
 from skills import find_skill
 from persona import build_system_prompt, ensure_persona_files
 
@@ -207,7 +207,7 @@ def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] 
     console.print(f"[dim]📂 Workspace: {workspace}[/dim]")
     if callback:
         callback("workspace", workspace)
-        callback("thinking", f"Workspace: {workspace}")
+        callback("thinking", f"Workspace ready · {workspace_display_name(workspace)}")
 
     upload_section = ""
     if upload:

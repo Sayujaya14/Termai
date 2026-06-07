@@ -16,6 +16,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKSPACES_ROOT = os.path.join(BASE_DIR, "workspaces")
 MEMORY_DIR = os.path.join(BASE_DIR, "memory")
 
+_TASK_FOLDER_TS = re.compile(r"_\d{8}_\d{6}$")
+
 # Folder names under workspaces/<user>/ that are NOT task output directories
 AGENT_HOME_SUBDIRS = frozenset({"memory", "avatars", "skills", "canvas"})
 
@@ -54,3 +56,29 @@ def make_task_workspace(user_id: str, task: str) -> str:
     folder = os.path.join(user_workspace_root(user_id), f"{slug}_{stamp}")
     os.makedirs(folder, exist_ok=True)
     return folder
+
+
+def workspace_display_name(workspace: str) -> str:
+    """Friendly task label for UI — never exposes filesystem paths."""
+    ws = (workspace or "").strip()
+    if not ws:
+        return "Task workspace"
+    if ws.startswith("(chat"):
+        return "Chat only"
+    folder = os.path.basename(ws.rstrip("/"))
+    label = _TASK_FOLDER_TS.sub("", folder).replace("_", " ").strip()
+    return label or "Task workspace"
+
+
+def sanitize_paths_for_ui(text: str) -> str:
+    """Redact absolute project paths from user-visible terminal/UI text."""
+    if not text:
+        return text
+    result = text
+    ws_pattern = re.compile(re.escape(WORKSPACES_ROOT) + r"(?:/[^/\s\"'<>]+)+")
+    result = ws_pattern.sub(lambda m: workspace_display_name(m.group(0)), result)
+    mem_pattern = re.compile(re.escape(MEMORY_DIR) + r"/[^\s\"'<>]+")
+    result = mem_pattern.sub("memory store", result)
+    base_pattern = re.compile(re.escape(BASE_DIR) + r"/[^\s\"'<>]+")
+    result = base_pattern.sub("[private]", result)
+    return result

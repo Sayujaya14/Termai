@@ -25,7 +25,12 @@ from memory import (
     get_all_tasks,
     get_conversation_turn_count,
 )
-from paths import user_agent_home, user_workspace_root, is_task_workspace_dir
+from paths import (
+    is_task_workspace_dir,
+    sanitize_paths_for_ui,
+    user_workspace_root,
+    workspace_display_name,
+)
 from persona import (
     ensure_persona_files,
     list_persona_files,
@@ -102,7 +107,8 @@ def _append_agent_event(event_type: str, content: str):
     """Convert agent callback events into HTML lines in session log_lines."""
     if not content and event_type != "done":
         return
-    safe = (content or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    content = sanitize_paths_for_ui(content or "")
+    safe = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     if event_type == "thinking":
         line = f'<div class="line-thinking">⠿ {safe}</div>'
     elif event_type == "skill":
@@ -257,7 +263,10 @@ def _render_task_cards(tasks: list) -> None:
         if ws.startswith("(chat"):
             meta = '<span class="badge-chat">Chat only</span>'
         else:
-            meta = f'<div class="task-card-meta">📂 {html.escape(ws)}</div>'
+            meta = (
+                f'<div class="task-card-meta">📁 '
+                f'{html.escape(workspace_display_name(ws))}</div>'
+            )
         summary_block = (
             f'<div class="task-card-summary">{summary}</div>' if summary else ""
         )
@@ -366,28 +375,30 @@ $ Awaiting task input...
 
     st.markdown("<div style='height:88px'></div>", unsafe_allow_html=True)
     st.markdown('<div class="input-bar">', unsafe_allow_html=True)
-    col_task, col_attach, col_run = st.columns([10, 1, 1], vertical_alignment="bottom")
+    col_attach, col_form = st.columns([1, 11], vertical_alignment="bottom")
     with col_attach:
         picked = attach_file_picker(disabled=st.session_state.running)
         if picked is not None:
             st.session_state.pending_upload = picked
             _announce_uploaded_file(picked[0])
-    with col_task:
-        task = st.text_input(
-            "task",
-            label_visibility="collapsed",
-            placeholder="Describe your task… (e.g. do an EDA on the uploaded file)",
-            disabled=st.session_state.running,
-            key="agent_task_input",
-        )
-    with col_run:
-        run_btn = st.button(
-            "Run",
-            type="primary",
-            disabled=st.session_state.running or not _api_ready,
-            use_container_width=True,
-            key="agent_run_btn",
-        )
+    with col_form:
+        with st.form("agent_run_form", clear_on_submit=False, border=False):
+            col_task, col_run = st.columns([10, 1], vertical_alignment="bottom")
+            with col_task:
+                task = st.text_input(
+                    "task",
+                    label_visibility="collapsed",
+                    placeholder="Describe your task… (Enter or Run to start)",
+                    disabled=st.session_state.running,
+                    key="agent_task_input",
+                )
+            with col_run:
+                run_btn = st.form_submit_button(
+                    "Run",
+                    type="primary",
+                    disabled=st.session_state.running or not _api_ready,
+                    use_container_width=True,
+                )
     st.markdown("</div>", unsafe_allow_html=True)
 
     task_text = (task or "").strip()
@@ -437,7 +448,7 @@ elif page == "Memory":
 
     page_header(
         "Memory",
-        f"Your task history and workspaces · memory/{user_id}.toon",
+        "Your task history and saved conversation context.",
     )
 
     chat_turns = get_conversation_turn_count(user_id)
@@ -496,14 +507,13 @@ elif page == "Persona":
     )
 
     ensure_persona_files(user_id, user_name)
-    agent_home = user_agent_home(user_id)
     persona_files = list_persona_files(user_id)
 
     st.markdown(
         f"""
         <div class="stat-row">
             <div class="stat-pill"><strong>{len(persona_files)}</strong> bootstrap files</div>
-            <div class="stat-pill"><code>{html.escape(agent_home)}</code></div>
+            <div class="stat-pill"><strong>{len([r for r in persona_files if r['exists']])}</strong> ready</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -523,7 +533,7 @@ elif page == "Persona":
         key="persona_file_select",
     )
 
-    st.caption(f"Path: `{os.path.join(agent_home, selected)}`")
+    st.caption(f"Editing: `{html.escape(selected)}`")
     current = read_persona_file(user_id, selected) or ""
     edited = st.text_area(
         "Content",
@@ -732,6 +742,6 @@ elif page == "Settings":
             st.rerun()
 
     st.caption(
-        "Personal keys are stored in `users.json` on the server. "
-        "If you clear personal settings, Termai uses `OPENAI_API_KEY` / `OPENROUTER_API_KEY` from `.env`."
+        "Personal keys are stored securely on this server. "
+        "If you clear personal settings, Termai uses server defaults from `.env`."
     )

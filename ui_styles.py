@@ -267,14 +267,14 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     z-index: 99;
 }
 
-/* Paperclip attach column (popover button) */
-.input-bar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-of-type(2) {
+/* Paperclip attach column (popover button) — first column in input bar */
+.input-bar [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-of-type(1) {
     flex: 0 0 52px !important;
     min-width: 52px !important;
     max-width: 52px !important;
 }
-.input-bar [data-testid="stColumn"]:nth-of-type(2) [data-testid="stPopoverButton"] > button,
-.input-bar [data-testid="stColumn"]:nth-of-type(2) > div > button {
+.input-bar [data-testid="stColumn"]:nth-of-type(1) [data-testid="stPopoverButton"] > button,
+.input-bar [data-testid="stColumn"]:nth-of-type(1) > div > button {
     width: 44px !important;
     height: 44px !important;
     min-width: 44px !important;
@@ -286,7 +286,7 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     border: none !important;
     border-radius: var(--radius) !important;
 }
-.input-bar [data-testid="stColumn"]:nth-of-type(2) [data-testid="stPopoverButton"] > button:hover {
+.input-bar [data-testid="stColumn"]:nth-of-type(1) [data-testid="stPopoverButton"] > button:hover {
     background: var(--accent-hover) !important;
     color: #0a0a0f !important;
 }
@@ -294,6 +294,15 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
 [data-testid="stPopoverBody"] [data-testid="stFileUploader"] small,
 [data-testid="stPopoverBody"] [data-testid="stCaptionContainer"] {
     display: none !important;
+}
+
+.input-bar [data-testid="stForm"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+.input-bar [data-testid="stFormSubmitButton"] > button {
+    min-height: 44px !important;
 }
 
 /* Inputs & buttons */

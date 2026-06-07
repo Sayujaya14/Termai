@@ -6,6 +6,7 @@ Streams output to console/UI and blocks dangerous patterns from config.
 
 import subprocess
 import os
+import re
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -13,8 +14,18 @@ from rich.prompt import Confirm
 from rich.live import Live
 from rich.text import Text
 from config import DANGEROUS_PATTERNS, COMMAND_TIMEOUT
+from tools.workspace import get_task_workspace
 
 console = Console()
+
+_CURL_PROGRESS_RE = re.compile(
+    r"^\s*(% Total|Dload\s+Upload|\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+[\d:]+\s+--:--:--)"
+)
+
+
+def _is_curl_progress_line(line: str) -> bool:
+    """True for curl's stderr progress meter (merged into stdout in run_command)."""
+    return bool(_CURL_PROGRESS_RE.match(line.strip()))
 
 
 def is_dangerous(command: str) -> bool:
@@ -28,7 +39,7 @@ def run_command(command: str, cwd: str = None, callback=None) -> str:
 
     Web UI blocks dangerous commands; CLI may prompt for confirmation.
     """
-    work_dir = cwd or os.getcwd()
+    work_dir = cwd or get_task_workspace() or os.getcwd()
 
     if is_dangerous(command):
         console.print(Panel(
@@ -58,7 +69,7 @@ def run_command(command: str, cwd: str = None, callback=None) -> str:
             for line in iter(process.stdout.readline, ""):
                 for part in line.replace("\r", "\n").split("\n"):
                     part = part.strip()
-                    if part:
+                    if part and not _is_curl_progress_line(part):
                         output_lines.append(part)
                         if callback:
                             callback("output", part)
