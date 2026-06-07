@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 
 USER_ID_RE = re.compile(r"^[a-z][a-z0-9_]{2,31}$")
+GOOGLE_USER_ID_RE = re.compile(r"^g_[a-f0-9]{16}$")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKSPACES_ROOT = os.path.join(BASE_DIR, "workspaces")
@@ -28,9 +29,9 @@ def is_task_workspace_dir(name: str) -> bool:
 
 
 def validate_user_id(user_id: str) -> str:
-    """Normalize and validate username; raises ValueError if invalid."""
+    """Normalize and validate username or Google-derived id; raises ValueError if invalid."""
     user_id = user_id.strip().lower()
-    if not USER_ID_RE.match(user_id):
+    if not (USER_ID_RE.match(user_id) or GOOGLE_USER_ID_RE.match(user_id)):
         raise ValueError(f"Invalid user_id: {user_id!r}")
     return user_id
 

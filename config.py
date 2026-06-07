@@ -56,6 +56,29 @@ CONVERSATION_MAX_CHARS = int(os.getenv("TERMAI_CONVERSATION_MAX_CHARS", "24000")
 CONVERSATION_USER_MAX = 4000  # max chars stored per user message in history
 CONVERSATION_ASSISTANT_MAX = 8000  # max chars stored per assistant reply in history
 
+# Google OAuth (optional — web UI "Sign in with Google")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI",
+    "http://localhost:8501",
+).strip()
+NGROK_PUBLIC_URL = os.getenv("TERMAI_NGROK_URL", "").strip()
+OAUTH_DYNAMIC_REDIRECT = os.getenv("TERMAI_OAUTH_DYNAMIC_REDIRECT", "false").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
+OAUTH_STATE_SECRET = (
+    os.getenv("TERMAI_OAUTH_STATE_SECRET", "").strip() or GOOGLE_CLIENT_SECRET or "termai-dev"
+)
+_allowed = os.getenv("TERMAI_GOOGLE_ALLOWED_DOMAINS", "").strip()
+GOOGLE_ALLOWED_DOMAINS = (
+    {d.strip().lower() for d in _allowed.split(",") if d.strip()}
+    if _allowed
+    else None
+)
+
 # Substrings that trigger safety checks in run_command
 DANGEROUS_PATTERNS = [
     "rm -rf", "rm -f", "mkfs", "dd if=",

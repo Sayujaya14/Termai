@@ -3,6 +3,57 @@
 import html
 
 
+def inject_login_page_css() -> None:
+    """Center the login card and hide sidebar on the sign-in screen."""
+    import streamlit as st
+
+    st.markdown(
+        """
+<style>
+.stApp:has(.termai-login-marker) section[data-testid="stSidebar"],
+.stApp:has(.termai-login-marker) [data-testid="stSidebarCollapsedControl"] {
+    display: none !important;
+}
+.stApp:has(.termai-login-marker) [data-testid="stAppViewContainer"] > section[data-testid="stMain"] {
+    margin-left: 0 !important;
+}
+.stApp:has(.termai-login-marker) .block-container {
+    max-width: 440px !important;
+    padding-top: 0 !important;
+    padding-bottom: 2rem !important;
+}
+.stApp:has(.termai-login-marker) [data-testid="stMainBlockContainer"] {
+    min-height: calc(100vh - 4rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+.stApp:has(.termai-login-marker) [data-testid="stMainBlockContainer"] > div {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
+    padding: 2.5rem 2rem 2rem;
+    box-sizing: border-box;
+}
+.stApp:has(.termai-login-marker) [data-testid="stForm"] {
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+.stApp:has(.termai-login-marker) [data-testid="stAlert"] {
+    margin-top: 1rem;
+}
+</style>
+<div class="termai-login-marker" aria-hidden="true"></div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def inject_global_css() -> None:
     """Inject dark theme CSS (sidebar, terminal, forms, login, cards)."""
     import streamlit as st
@@ -10,7 +61,7 @@ def inject_global_css() -> None:
     st.markdown(
         """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Roboto:wght@500&display=swap');
 
 :root {
     --bg: #0a0a0f;
@@ -517,27 +568,95 @@ div[data-baseweb="tooltip"] svg {
 }
 
 /* Login */
-.login-wrap {
-    max-width: 400px;
-    margin: 4rem auto 2rem;
-    padding: 2rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
-}
 .login-logo {
     font-size: 2rem;
     font-weight: 700;
     color: var(--text);
     text-align: center;
     margin-bottom: 0.25rem;
+    letter-spacing: -0.02em;
 }
 .login-tagline {
     text-align: center;
     color: var(--muted);
     font-size: 0.9rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
+}
+.login-google-wrap {
+    margin-bottom: 0.25rem;
+}
+.google-signin-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    height: 48px;
+    padding: 0 16px;
+    background: #ffffff !important;
+    color: #1f1f1f !important;
+    border: 1px solid #747775;
+    border-radius: 8px;
+    font-family: "Roboto", "Google Sans", system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none !important;
+    transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+.google-signin-btn:hover,
+.google-signin-btn:visited,
+.google-signin-btn:active {
+    background: #f7f8f8 !important;
+    border-color: #747775;
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    text-decoration: none !important;
+    color: #1f1f1f !important;
+}
+.google-signin-btn:focus-visible {
+    outline: 2px solid #4285f4;
+    outline-offset: 2px;
+}
+.google-signin-btn--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    box-shadow: none;
+}
+.google-signin-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+}
+.google-signin-hint {
+    margin-top: 0.65rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+.login-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.35rem 0 1.35rem;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+.login-divider::before,
+.login-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+.login-divider span {
+    padding: 0 0.85rem;
+    text-transform: lowercase;
 }
 
 h1, h2, h3, p, label, .stMarkdown { color: var(--text); }
@@ -545,6 +664,41 @@ h1, h2, h3, p, label, .stMarkdown { color: var(--text); }
         """,
         unsafe_allow_html=True,
     )
+
+
+GOOGLE_LOGO_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
+  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+</svg>
+"""
+
+
+def render_google_signin_button(*, href: str | None = None, disabled: bool = False) -> str:
+    """HTML for a Google-branded sign-in button (modern white style)."""
+    label = "Continue with Google"
+    icon = f'<span class="google-signin-icon">{GOOGLE_LOGO_SVG}</span>'
+    if href and not disabled:
+        inner = (
+            f'<a class="google-signin-btn" href="{html.escape(href, quote=True)}" '
+            f'rel="noopener noreferrer">{icon}{html.escape(label)}</a>'
+        )
+    else:
+        inner = (
+            f'<span class="google-signin-btn google-signin-btn--disabled">'
+            f"{icon}{html.escape(label)}</span>"
+        )
+    hint = ""
+    if disabled:
+        hint = (
+            '<p class="google-signin-hint">'
+            "Set <code>GOOGLE_CLIENT_ID</code> and "
+            "<code>GOOGLE_CLIENT_SECRET</code> in <code>.env</code> to enable."
+            "</p>"
+        )
+    return f'<div class="login-google-wrap">{inner}{hint}</div>'
 
 
 def page_header(title: str, subtitle: str = "") -> None:
