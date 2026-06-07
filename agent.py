@@ -90,11 +90,15 @@ def is_meta_memory_query(task: str) -> bool:
 def is_simple_query(task: str) -> bool:
     """True for Q&A-style prompts without action keywords (skips tools/workspace)."""
     t = task.strip().lower()
+    if t in GREETINGS:
+        return True
     # strip leading greeting words like "hi", "hello", "hey"
     for greet in GREETINGS:
         if t.startswith(greet + " "):
             t = t[len(greet):].strip()
             break
+    if not t:
+        return True
     if any(kw in t for kw in ACTION_KEYWORDS):
         return False
     return any(re.match(p, t) for p in SIMPLE_QUERY_PATTERNS)
@@ -144,7 +148,8 @@ def answer_directly(task: str, user_id: str, callback=None):
     chat_system = (
         system
         + "\n\nFor this message: answer concisely in plain text. "
-        "Do NOT create files, do NOT use tools, do NOT write code unless explicitly asked."
+        "Do NOT create files, do NOT use tools, do NOT write code unless explicitly asked. "
+        "For greetings only (hi, hello), reply briefly — do NOT repeat or continue prior tasks."
     )
     user_content = task
     meta = is_meta_memory_query(task)
