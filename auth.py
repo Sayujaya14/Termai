@@ -21,6 +21,12 @@ def _load_users_raw() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _save_users_raw(data: dict) -> None:
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+
 def load_users() -> dict[str, dict]:
     """Return validated users: username -> {name, password_hash}."""
     users = {}

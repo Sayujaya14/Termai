@@ -1,7 +1,7 @@
 """
 Streamlit web UI for Termai.
 
-Pages: Agent (terminal + run), Persona (bootstrap files), Memory, Skills.
+Pages: Agent (terminal + run), Persona, Memory, Skills, Settings.
 Runs run_agent() in a background thread and polls events into the terminal view.
 """
 
@@ -33,7 +33,16 @@ from persona import (
     reset_persona_file,
     write_persona_file,
 )
+from config import MAX_OUTPUT_TOKENS, PROVIDER_PRESETS
 from skills import list_skills
+from user_llm import (
+    clear_user_llm,
+    get_user_llm,
+    llm_ready,
+    llm_status_summary,
+    save_user_llm,
+    test_llm_connection,
+)
 from ui_attach import attach_file_picker
 from ui_styles import inject_global_css, page_header
 from workspace_zip import zip_workspace
@@ -53,9 +62,15 @@ if not is_logged_in():
 
 user_id = get_current_user_id()
 user_name = st.session_state.get("user_name", user_id)
-_pages = ["Agent", "Persona", "Memory", "Skills"]
+_pages = ["Agent", "Persona", "Memory", "Skills", "Settings"]
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "Agent"
+
+_llm_status = llm_status_summary(user_id)
+_llm_hint = ""
+if _llm_status["model"]:
+    src = "your key" if _llm_status["using_personal"] else "server"
+    _llm_hint = f" · {_llm_status['model']} ({src})"
 
 with st.sidebar:
     st.markdown(
@@ -64,7 +79,7 @@ with st.sidebar:
     )
     st.markdown(
         f'<span class="user-chip">Signed in as <strong>{html.escape(user_name)}</strong> '
-        f'({html.escape(user_id)})</span>',
+        f'({html.escape(user_id)}){html.escape(_llm_hint)}</span>',
         unsafe_allow_html=True,
     )
     page = st.radio(
@@ -262,6 +277,16 @@ def _render_task_cards(tasks: list) -> None:
 if page == "Agent":
     page_header("Agent", "Run tasks — code, shell, and files in your private workspace.")
 
+    _api_ready = llm_ready(user_id)
+    if not _api_ready:
+        st.warning(
+            "No API key configured. Add your personal key in **Settings**, "
+            "or ask an admin to set `OPENAI_API_KEY` in `.env`."
+        )
+        if st.button("Configure API settings", type="primary", key="agent_go_settings"):
+            st.session_state.nav_page = "Settings"
+            st.rerun()
+
     if "log_lines" not in st.session_state:
         st.session_state.log_lines = [
         """
@@ -359,7 +384,7 @@ $ Awaiting task input...
         run_btn = st.button(
             "Run",
             type="primary",
-            disabled=st.session_state.running,
+            disabled=st.session_state.running or not _api_ready,
             use_container_width=True,
             key="agent_run_btn",
         )
@@ -368,7 +393,7 @@ $ Awaiting task input...
     task_text = (task or "").strip()
     run_upload = st.session_state.get("pending_upload")
 
-    if run_btn and not st.session_state.running and (task_text or run_upload):
+    if run_btn and not st.session_state.running and _api_ready and (task_text or run_upload):
         if not task_text:
             task_text = "Analyze the uploaded data file."
         safe_task = task_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -420,7 +445,7 @@ elif page == "Memory":
     if st.button(
         "Clear conversation memory",
         help="Removes ChatGPT-style message history between runs. Task list and workspaces stay.",
-        type="secondary",
+        type="primary",
     ):
         clear_conversation_memory(user_id)
         st.success("Conversation memory cleared.")
@@ -564,3 +589,149 @@ elif page == "Skills":
                 )
                 with open(skill_path) as f:
                     st.markdown(f.read())
+
+elif page == "Settings":
+    st.session_state.pop("terminal_ph", None)
+    page_header(
+        "Settings",
+        "Configure your personal LLM provider, API key, and model.",
+    )
+
+    status = llm_status_summary(user_id)
+    stored = get_user_llm(user_id) or {}
+    provider_ids = list(PROVIDER_PRESETS.keys())
+    provider_labels = {pid: PROVIDER_PRESETS[pid]["label"] for pid in provider_ids}
+
+    if status["using_personal"]:
+        cap = status.get("max_output_tokens")
+        cap_text = f" · max {cap} out tokens" if cap else ""
+        st.success(
+            f"Using **your API key** — {status['provider_label']} · "
+            f"`{html.escape(status['model'])}` · key `{html.escape(status['masked_key'])}`"
+            f"{html.escape(cap_text)}"
+        )
+    elif status["model"]:
+        cap = status.get("max_output_tokens")
+        cap_text = f" · max {cap} out tokens" if cap else ""
+        st.info(
+            f"Using **server defaults** from `.env` — "
+            f"{status['provider_label']} · `{html.escape(status['model'])}`"
+            f"{html.escape(cap_text)}"
+        )
+    else:
+        st.error("No API credentials available. Save a personal key below or configure `.env`.")
+
+    current_provider = stored.get("provider", "openai")
+    if current_provider not in provider_ids:
+        current_provider = "openai"
+
+    with st.form("llm_settings_form"):
+        provider = st.selectbox(
+            "Provider",
+            options=provider_ids,
+            index=provider_ids.index(current_provider),
+            format_func=lambda pid: provider_labels[pid],
+        )
+        preset = PROVIDER_PRESETS[provider]
+        api_key = st.text_input(
+            "API key",
+            type="password",
+            placeholder="sk-…" if not stored.get("api_key") else "Leave blank to keep current key",
+            help="Stored in users.json on this server. Never shared with other users.",
+        )
+        base_default = stored.get("base_url") or preset["base_url"]
+        base_url = st.text_input(
+            "Base URL",
+            value=base_default,
+            disabled=provider != "custom",
+            help="Required for Custom. Auto-filled for OpenAI and OpenRouter.",
+        )
+        model_default = stored.get("model") or preset["default_model"] or "gpt-4o"
+        model = st.text_input("Model", value=model_default)
+        fallback_default = stored.get("fallback_model") or preset.get("default_fallback_model", "")
+        fallback_model = st.text_input(
+            "Fallback model (optional)",
+            value=fallback_default,
+            help="Used only when the primary model call fails (same provider).",
+        )
+        max_out_default = stored.get("max_output_tokens")
+        if max_out_default is None:
+            max_out_default = MAX_OUTPUT_TOKENS
+        max_output_tokens = st.number_input(
+            "Max output tokens",
+            min_value=16,
+            max_value=65536,
+            value=int(max_out_default),
+            step=256,
+            help=(
+                "Maximum tokens per API response. OpenRouter reserves credits by this limit — "
+                "lower it if you have limited balance. Server default from "
+                f"`TERMAI_MAX_OUTPUT_TOKENS` is {MAX_OUTPUT_TOKENS}."
+            ),
+        )
+        col_save, col_test = st.columns(2)
+        with col_save:
+            submitted = st.form_submit_button(
+                "Save API settings",
+                type="primary",
+                use_container_width=True,
+            )
+        with col_test:
+            test_clicked = st.form_submit_button(
+                "Test connection",
+                use_container_width=True,
+            )
+
+    if submitted:
+        try:
+            save_user_llm(
+                user_id,
+                provider=provider,
+                api_key=api_key,
+                base_url=base_url if provider == "custom" else preset["base_url"],
+                model=model,
+                fallback_model=fallback_model,
+                max_output_tokens=int(max_output_tokens),
+            )
+            st.success("API settings saved.")
+            st.rerun()
+        except ValueError as e:
+            st.error(str(e))
+
+    if test_clicked:
+        try:
+            if api_key.strip() or stored.get("api_key"):
+                save_user_llm(
+                    user_id,
+                    provider=provider,
+                    api_key=api_key,
+                    base_url=base_url if provider == "custom" else preset["base_url"],
+                    model=model,
+                    fallback_model=fallback_model,
+                    max_output_tokens=int(max_output_tokens),
+                )
+            ok, msg = test_llm_connection(user_id)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
+        except ValueError as e:
+            st.error(str(e))
+        except RuntimeError as e:
+            st.error(str(e))
+
+    st.divider()
+    if stored.get("api_key"):
+        if st.button(
+            "Clear personal settings",
+            type="primary",
+            help="Remove your saved key and use server defaults from .env instead.",
+        ):
+            clear_user_llm(user_id)
+            st.success("Personal API settings cleared.")
+            st.rerun()
+
+    st.caption(
+        "Personal keys are stored in `users.json` on the server. "
+        "If you clear personal settings, Termai uses `OPENAI_API_KEY` / `OPENROUTER_API_KEY` from `.env`."
+    )

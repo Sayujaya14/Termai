@@ -8,10 +8,10 @@ import json
 import os
 import re
 from datetime import datetime
-from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
-from config import MODEL,FALLBACK_MODEL, OPENAI_API_KEY, OPENAI_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_BASE_URL, MAX_TOKENS, SYSTEM_PROMPT, calculate_cost
+from config import MAX_TOKENS, PROVIDER_PRESETS, SYSTEM_PROMPT, calculate_cost
+from user_llm import create_chat_completion, resolve_llm_for_run
 from tools import TOOLS, handle_tool
 from memory import (
     get_conversation_messages,
@@ -25,39 +25,8 @@ from paths import make_task_workspace, user_agent_home
 from skills import find_skill
 from persona import build_system_prompt, ensure_persona_files
 
-def _make_client(api_key: str | None, base_url: str | None) -> OpenAI | None:
-    """Build OpenAI-compatible client or None if API key is missing."""
-    if not api_key or not api_key.strip():
-        return None
-    return OpenAI(api_key=api_key.strip(), base_url=(base_url or "https://api.openai.com/v1").rstrip("/"))
-
-
-client = _make_client(OPENAI_API_KEY, OPENAI_BASE_URL)
-fallback_client = _make_client(OPENROUTER_API_KEY, OPENROUTER_BASE_URL)
 console = Console()
 
-
-def create_chat_completion(**kwargs):
-    """
-    Primary API (OPENAI_*) -> OpenRouter fallback when configured.
-    """
-    if client is not None:
-        try:
-            return client.chat.completions.create(**kwargs)
-        except Exception as openai_error:
-            console.print(f"[yellow]⚠ Primary API failed:[/yellow] {openai_error}")
-            if fallback_client is None:
-                raise
-
-    if fallback_client is not None:
-        kwargs = dict(kwargs)
-        kwargs["model"] = FALLBACK_MODEL
-        return fallback_client.chat.completions.create(**kwargs)
-
-    raise RuntimeError(
-        "No API key configured. Set OPENAI_API_KEY (and OPENAI_BASE_URL) in .env, "
-        "or OPENROUTER_API_KEY for fallback."
-    )
 
 def get_role(m) -> str:
     """Extract message role from dict or OpenAI message object."""
@@ -193,16 +162,14 @@ def answer_directly(task: str, user_id: str, callback=None):
     )
     if callback and (had_history or meta):
         callback("thinking", "💬 Using conversation history from past runs")
-    try:
-        response = create_chat_completion(model=MODEL, messages=messages)
-    except Exception:
-        response = create_chat_completion(model=FALLBACK_MODEL, messages=messages)
+    resolved = resolve_llm_for_run(user_id)
+    response = create_chat_completion(user_id, messages=messages)
     # no tools passed — so LLM physically cannot call any
     answer = response.choices[0].message.content or ""
     save_conversation_turn(user_id, task, answer, workspace=memory_label)
     input_tokens = response.usage.prompt_tokens if response.usage else 0
     output_tokens = response.usage.completion_tokens if response.usage else 0
-    cost = calculate_cost(input_tokens, output_tokens)
+    cost = calculate_cost(input_tokens, output_tokens, model=resolved.model)
     cost_str = f"${cost:.4f}" if cost >= 0.0001 else "< $0.0001"
     usage_str = f"🪙 {input_tokens + output_tokens} tokens ({input_tokens} in / {output_tokens} out) — {cost_str}"
 
@@ -293,6 +260,15 @@ def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] 
     step = 0
     total_input_tokens = 0
     total_output_tokens = 0
+    resolved = resolve_llm_for_run(user_id)
+    if callback:
+        source = "your API key" if resolved.source == "user" else "server defaults"
+        cap = resolved.max_output_tokens
+        cap_note = f", max {cap} out tokens" if cap else ""
+        callback(
+            "thinking",
+            f"LLM: {resolved.model} ({PROVIDER_PRESETS.get(resolved.provider, {}).get('label', resolved.provider)}, {source}{cap_note})",
+        )
 
     while True:
         step += 1
@@ -303,9 +279,9 @@ def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] 
 
         with console.status(f"[bold cyan]Thinking... (step {step})[/bold cyan]", spinner="dots"):
             response = create_chat_completion(
-                model=MODEL,
+                user_id,
                 tools=TOOLS,
-                messages=messages
+                messages=messages,
             )
 
         # accumulate token usage
@@ -319,7 +295,11 @@ def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] 
 
         if finish == "stop":
             summary = message.content or ""
-            cost = calculate_cost(total_input_tokens, total_output_tokens)
+            cost = calculate_cost(
+                total_input_tokens,
+                total_output_tokens,
+                model=resolved.model,
+            )
             cost_str = f"${cost:.4f}" if cost >= 0.0001 else "< $0.0001"
             usage_str = f"🪙 {total_input_tokens + total_output_tokens} tokens ({total_input_tokens} in / {total_output_tokens} out) — {cost_str}"
 

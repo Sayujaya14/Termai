@@ -7,6 +7,7 @@ An AI coding agent with full terminal access. Give it a task — it writes code,
 - 🔒 Safety confirmation before dangerous commands
 - 📁 Isolated workspace per user and task
 - 👤 Multi-user auth (username/password, per-user memory)
+- 🔑 Per-user API key, provider, and model (Settings page)
 - 🧠 Persistent memory across sessions (TOON format)
 - 📖 Skill guides for common tasks (EDA, forecasting, scraping)
 - 🔧 Diff-based file patching
@@ -21,11 +22,19 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Create `.env` with your OpenAI credentials:
+Copy the example env file and set your credentials:
+
+```bash
+cp .env.example .env
+```
+
+Required in `.env`:
 
 ```bash
 OPENAI_API_KEY=your-api-key
 OPENAI_BASE_URL=https://api.openai.com/v1
+TERMAI_MODEL=gpt-4o
+TERMAI_FALLBACK_MODEL=openai/gpt-4o-mini
 ```
 
 Create user accounts:
@@ -56,6 +65,8 @@ streamlit run app.py
 ```
 
 Open the URL shown (e.g. `http://localhost:8501`), sign in, then run tasks.
+
+**Settings** (sidebar): each user can save a personal API key, provider (OpenAI, OpenRouter, or custom OpenAI-compatible endpoint), and model. If no personal key is set, Termai uses server defaults from `.env`.
 
 When a task creates files in your workspace, a **Download outputs (.zip)** button appears on the Agent page after it finishes.
 
@@ -89,6 +100,7 @@ Termai/
 ├── main.py             # CLI entry point
 ├── agent.py            # agent loop
 ├── auth.py             # users.json auth (bcrypt)
+├── user_llm.py         # per-user LLM provider, key, model
 ├── config.py           # model, API key, system prompt
 ├── memory.py           # per-user persistent memory
 ├── toon.py             # TOON serializer
@@ -126,6 +138,7 @@ keyword1, keyword2, keyword3
 
 ## Security notes
 
+- Personal API keys are stored in `users.json` on the server (plaintext). Restrict file permissions and do not commit `users.json`.
 - Users are isolated by **memory file** and **workspace folder**, not by OS sandbox.
 - Shell commands run on the host as the Streamlit/CLI process user.
 - Do not expose to the public internet without extra hardening (containers, VPN, rate limits).

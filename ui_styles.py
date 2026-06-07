@@ -314,8 +314,125 @@ div[data-testid="stTextInput"] input::placeholder {
     color: var(--muted) !important;
     opacity: 1 !important;
 }
+div[data-testid="stTextInput"] input:disabled {
+    background: var(--surface-2) !important;
+    color: var(--muted) !important;
+    -webkit-text-fill-color: var(--muted) !important;
+    opacity: 1 !important;
+}
+
+/* Selectbox */
+div[data-testid="stSelectbox"] label,
+div[data-testid="stSelectbox"] [data-testid="stWidgetLabel"] p {
+    color: var(--text) !important;
+}
+div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius) !important;
+    color: var(--text) !important;
+}
+div[data-testid="stSelectbox"] [data-baseweb="select"] input {
+    background-color: transparent !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
+}
+div[data-testid="stSelectbox"] [data-baseweb="select"] span,
+div[data-testid="stSelectbox"] [data-baseweb="select"] div {
+    color: var(--text) !important;
+    background-color: transparent !important;
+}
+div[data-testid="stSelectbox"] [data-baseweb="select"] svg {
+    fill: var(--muted) !important;
+    color: var(--muted) !important;
+}
+div[data-baseweb="popover"] ul[data-baseweb="menu"],
+div[data-baseweb="popover"] [role="listbox"] {
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+}
+div[data-baseweb="popover"] li[role="option"],
+div[data-baseweb="popover"] li[data-baseweb="option"] {
+    color: var(--text) !important;
+    background-color: var(--surface) !important;
+}
+div[data-baseweb="popover"] li[role="option"]:hover,
+div[data-baseweb="popover"] li[data-baseweb="option"]:hover {
+    background-color: var(--surface-2) !important;
+}
+div[data-baseweb="popover"] li[aria-selected="true"] {
+    background-color: rgba(108, 158, 255, 0.18) !important;
+    color: var(--accent) !important;
+}
+
+/* Number input */
+div[data-testid="stNumberInput"] label,
+div[data-testid="stNumberInput"] [data-testid="stWidgetLabel"] p {
+    color: var(--text) !important;
+}
+div[data-testid="stNumberInput"] [data-baseweb="input"] {
+    background: transparent !important;
+}
+div[data-testid="stNumberInput"] [data-baseweb="input"] > div {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius) !important;
+}
+div[data-testid="stNumberInput"] input {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    box-shadow: none !important;
+    -webkit-text-fill-color: var(--text) !important;
+}
+div[data-testid="stNumberInput"] input:focus {
+    border-color: var(--accent) !important;
+}
+div[data-testid="stNumberInput"] button {
+    background: var(--surface-2) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+}
+div[data-testid="stNumberInput"] button:hover {
+    background: var(--surface) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+}
+div[data-testid="stNumberInput"] button svg {
+    fill: currentColor !important;
+    stroke: currentColor !important;
+}
+
+/* Textarea (Persona editor) */
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stTextArea"] textarea:focus {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    box-shadow: none !important;
+}
+div[data-testid="stTextArea"] textarea:focus {
+    border-color: var(--accent) !important;
+}
+
+/* Form labels & help icons */
+[data-testid="stForm"] label p,
+[data-testid="stForm"] [data-testid="stWidgetLabel"] p {
+    color: var(--text) !important;
+}
+[data-testid="stForm"] [data-testid="stTooltipIcon"] {
+    color: var(--muted) !important;
+}
 
 .stButton > button[kind="primary"],
+.stButton > button[data-testid="stBaseButton-primary"],
+div[data-testid="stButton"] > button[kind="primary"],
+div[data-testid="stButton"] > button[data-testid="stBaseButton-primary"],
 .stFormSubmitButton > button {
     background: var(--accent) !important;
     color: #0a0a0f !important;
@@ -324,15 +441,62 @@ div[data-testid="stTextInput"] input::placeholder {
     border-radius: var(--radius) !important;
 }
 .stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="stBaseButton-primary"]:hover,
+div[data-testid="stButton"] > button[kind="primary"]:hover,
+div[data-testid="stButton"] > button[data-testid="stBaseButton-primary"]:hover,
 .stFormSubmitButton > button:hover {
     background: var(--accent-hover) !important;
     color: #0a0a0f !important;
 }
-.stButton > button[kind="secondary"] {
+.stButton > button[kind="secondary"],
+.stButton > button[data-testid="stBaseButton-secondary"],
+div[data-testid="stButton"] > button[kind="secondary"],
+div[data-testid="stButton"] > button[data-testid="stBaseButton-secondary"] {
     background: var(--surface-2) !important;
     color: var(--text) !important;
     border: 1px solid var(--border) !important;
     border-radius: var(--radius) !important;
+}
+.stButton > button[kind="secondary"]:hover,
+.stButton > button[data-testid="stBaseButton-secondary"]:hover,
+div[data-testid="stButton"] > button[kind="secondary"]:hover,
+div[data-testid="stButton"] > button[data-testid="stBaseButton-secondary"]:hover {
+    background: var(--surface) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+}
+
+/* Tooltips (button help, widget help icons) */
+div[data-baseweb="tooltip"],
+div[data-baseweb="tooltip"] > div,
+[role="tooltip"],
+[data-testid="stTooltipContent"] {
+    background-color: var(--surface-2) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55) !important;
+    z-index: 99999 !important;
+}
+div[data-baseweb="tooltip"] div,
+div[data-baseweb="tooltip"] p,
+div[data-baseweb="tooltip"] span,
+div[data-baseweb="tooltip"] li,
+[role="tooltip"] div,
+[role="tooltip"] p,
+[role="tooltip"] span,
+[data-testid="stTooltipContent"] div,
+[data-testid="stTooltipContent"] p,
+[data-testid="stTooltipContent"] span {
+    color: var(--text) !important;
+    background-color: transparent !important;
+}
+div[data-baseweb="tooltip"] a {
+    color: var(--accent) !important;
+}
+div[data-baseweb="tooltip"] svg {
+    fill: var(--surface-2) !important;
+    background: transparent !important;
 }
 
 /* Alerts */

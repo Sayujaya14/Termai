@@ -21,10 +21,34 @@ OPENROUTER_BASE_URL = os.getenv(
     "https://openrouter.ai/api/v1",
 )
 
-MODEL = "gpt-4o"
-FALLBACK_MODEL = "openai/gpt-4o-mini"
+MODEL = os.getenv("TERMAI_MODEL", "gpt-4o").strip()
+FALLBACK_MODEL = os.getenv("TERMAI_FALLBACK_MODEL", "openai/gpt-4o-mini").strip()
+
+# Presets for per-user LLM settings (Settings page)
+PROVIDER_PRESETS = {
+    "openai": {
+        "label": "OpenAI",
+        "base_url": "https://api.openai.com/v1",
+        "default_model": "gpt-4o",
+        "default_fallback_model": "gpt-4o-mini",
+    },
+    "openrouter": {
+        "label": "OpenRouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "default_model": "openai/gpt-4o-mini",
+        "default_fallback_model": "",
+    },
+    "custom": {
+        "label": "Custom (OpenAI-compatible)",
+        "base_url": "",
+        "default_model": "",
+        "default_fallback_model": "",
+    },
+}
 COMMAND_TIMEOUT = 120  # seconds for shell commands
 MAX_TOKENS = 80000  # rough context budget for message trimming
+# Cap completion length sent to the API (OpenRouter bills/reserves by this limit)
+MAX_OUTPUT_TOKENS = int(os.getenv("TERMAI_MAX_OUTPUT_TOKENS", "4096"))
 
 # Cross-run conversation memory (ChatGPT-style), stored in memory/<user>.toon @chat
 CONVERSATION_MAX_TURNS = int(os.getenv("TERMAI_CONVERSATION_MAX_TURNS", "15"))
@@ -47,9 +71,18 @@ MODEL_PRICING = {
 }
 
 
-def calculate_cost(input_tokens: int, output_tokens: int) -> float:
+def calculate_cost(
+    input_tokens: int,
+    output_tokens: int,
+    model: str | None = None,
+) -> float:
     """Estimate USD cost for a completion using MODEL_PRICING."""
-    pricing = MODEL_PRICING.get(MODEL, {"input": 0, "output": 0})
+    model_name = (model or MODEL).strip()
+    pricing = MODEL_PRICING.get(model_name)
+    if pricing is None and "/" in model_name:
+        pricing = MODEL_PRICING.get(model_name.rsplit("/", 1)[-1])
+    if pricing is None:
+        pricing = {"input": 0, "output": 0}
     return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
 
