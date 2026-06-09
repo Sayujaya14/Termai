@@ -1,7 +1,7 @@
 # Skill: Forecasting Report
 
-## Trigger keywords
-forecast, forecasting, time series, predict, arima, future values
+## When to use
+User wants a time-series forecast, prediction, or future-values report from historical data.
 
 ## Steps
 1. Load the dataset using pandas

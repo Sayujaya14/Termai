@@ -1,7 +1,7 @@
 # Skill: EDA Report
 
-## Trigger keywords
-eda, exploratory data analysis, data report, data profiling
+## When to use
+User wants an exploratory data analysis report (HTML + plots + summary statistics) on a dataset — not a definition of what EDA means.
 
 ## Steps
 1. Load the dataset using pandas (read_csv, read_excel, etc.)

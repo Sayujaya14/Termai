@@ -1,7 +1,7 @@
 """
-Skill guides: markdown files in skills/ with trigger keywords.
+Skill guides: markdown files in skills/ loaded when the prompt router selects one.
 
-When a task matches keywords, the skill instructions are injected into the agent prompt.
+Skills are chosen by an LLM routing step (task_router.py), not keyword matching.
 """
 
 import os
@@ -10,59 +10,78 @@ SKILLS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills")
 
 
 def _parse_skill(content: str) -> dict:
-    """Parse SKILL.md into keywords list and instruction body (without trigger section)."""
-    keywords = []
+    """Parse a skill markdown file into metadata and instruction body."""
+    title = ""
+    when_to_use = ""
     instructions_lines = []
-    in_keywords = False
+    in_when = False
 
     for line in content.splitlines():
-        if line.strip() == "## Trigger keywords":
-            in_keywords = True
+        if line.startswith("# Skill:"):
+            title = line.replace("# Skill:", "").strip()
             continue
-        if in_keywords and line.startswith("##"):
-            in_keywords = False
-        if in_keywords:
-            if line.strip() and not line.startswith("#"):
-                keywords = [k.strip().lower() for k in line.split(",")]
+        stripped = line.strip()
+        if stripped in ("## When to use", "## Trigger keywords"):
+            in_when = True
+            continue
+        if in_when and line.startswith("##"):
+            in_when = False
+        if in_when:
+            if stripped and not stripped.startswith("#"):
+                when_to_use = stripped if not when_to_use else f"{when_to_use} {stripped}"
         else:
             instructions_lines.append(line)
 
     return {
-        "keywords": keywords,
+        "title": title,
+        "when_to_use": when_to_use.strip(),
         "instructions": "\n".join(instructions_lines).strip(),
     }
 
 
-def find_skill(task: str) -> str | None:
-    """Return skill instructions if any keyword appears in the task text."""
+def _iter_skill_files() -> list[str]:
     if not os.path.exists(SKILLS_DIR):
-        return None
+        return []
+    return sorted(
+        f for f in os.listdir(SKILLS_DIR) if f.endswith(".md")
+    )
 
-    task_lower = task.lower()
-    for filename in os.listdir(SKILLS_DIR):
-        if not filename.endswith(".md"):
-            continue
+
+def load_skill_instructions(filename: str) -> str | None:
+    """Return skill instructions for a catalog filename, or None if missing."""
+    if not filename or not filename.endswith(".md"):
+        return None
+    path = os.path.join(SKILLS_DIR, filename)
+    if not os.path.isfile(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        parsed = _parse_skill(f.read())
+    return parsed["instructions"] or None
+
+
+def format_skill_catalog() -> str:
+    """One-line-per-skill summary for the routing prompt."""
+    lines = []
+    for filename in _iter_skill_files():
         path = os.path.join(SKILLS_DIR, filename)
-        with open(path, "r") as f:
-            content = f.read()
-        parsed = _parse_skill(content)
-        if any(kw in task_lower for kw in parsed["keywords"]):
-            return parsed["instructions"]
-    return None
+        with open(path, "r", encoding="utf-8") as f:
+            parsed = _parse_skill(f.read())
+        title = parsed["title"] or filename
+        when = parsed["when_to_use"] or "See skill file."
+        lines.append(f"- {filename}: {title} — {when}")
+    return "\n".join(lines)
 
 
 def list_skills() -> list[dict]:
-    """List all skills for the Skills page / CLI (file, title, keywords)."""
+    """List all skills for the Skills page / CLI."""
     skills = []
-    if not os.path.exists(SKILLS_DIR):
-        return skills
-    for filename in sorted(os.listdir(SKILLS_DIR)):
-        if not filename.endswith(".md"):
-            continue
+    for filename in _iter_skill_files():
         path = os.path.join(SKILLS_DIR, filename)
-        with open(path, "r") as f:
-            content = f.read()
-        title = content.splitlines()[0].replace("# Skill: ", "").strip()
-        keywords = _parse_skill(content)["keywords"]
-        skills.append({"file": filename, "title": title, "keywords": keywords})
+        with open(path, "r", encoding="utf-8") as f:
+            parsed = _parse_skill(f.read())
+        skills.append({
+            "file": filename,
+            "title": parsed["title"] or filename,
+            "when_to_use": parsed["when_to_use"],
+        })
     return skills

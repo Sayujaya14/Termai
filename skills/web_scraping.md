@@ -1,7 +1,7 @@
 # Skill: Web Scraping
 
-## Trigger keywords
-scrape, scraping, web scrape, crawl, extract data from website, beautifulsoup
+## When to use
+User wants to scrape or extract structured data from a website or URL.
 
 ## Steps
 1. Install required libs: `pip install requests beautifulsoup4 pandas`

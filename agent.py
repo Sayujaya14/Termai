@@ -1,12 +1,11 @@
 """
-Core agent loop: LLM chat with tools, simple-query fast path, persona/memory/skills.
+Core agent loop: LLM chat with tools, prompt-based routing, persona/memory/skills.
 
 run_agent() is the main entry used by Streamlit (app.py) and CLI (main.py).
 """
 
 import json
 import os
-import re
 from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
@@ -22,8 +21,9 @@ from memory import (
     update_summary,
 )
 from paths import make_task_workspace, user_agent_home, workspace_display_name
-from skills import find_skill
+from skills import load_skill_instructions
 from persona import build_system_prompt, ensure_persona_files
+from task_router import classify_task
 
 console = Console()
 
@@ -44,64 +44,12 @@ def trim_messages(messages: list) -> list:
     return system + rest
 
 
-SIMPLE_QUERY_PATTERNS = [
-    r'^what\b', r'^who\b', r'^why\b', r'^how\b', r'^when\b', r'^where\b',
-    r'^explain\b', r'^define\b', r'^tell me\b', r'^describe\b',
-    r'^what is\b', r'^what are\b', r'^can you explain\b', r'^difference between\b',
-    r'^which\b', r'^is\b', r'^are\b', r'^does\b', r'^do\b', r'^can\b',
-    r'^give me an example\b', r'^show me an example\b',
-]
-
-GREETINGS = ["hi", "hello", "hey", "hii", "helo", "yo"]
-ACTION_KEYWORDS = [
-    "create", "build", "make", "generate", "write", "run", "execute", "install",
-    "scrape", "train", "deploy", "fix", "debug", "analyze", "plot", "download",
-    "fetch", "send", "eda", "report", "dataset", "csv", "script", "code",
-]
-
-
-META_MEMORY_PATTERNS = [
-    r"last question",
-    r"last (thing|message|request|task)",
-    r"what did i ask",
-    r"what i asked",
-    r"what was i asking",
-    r"what (was|is) the last",
-    r"previous question",
-    r"remember what",
-    r"recall",
-    r"asked you last",
-]
-
 HISTORY_SYSTEM_NOTE = """
 The user and assistant messages above are REAL prior turns with this user (persisted across runs).
 Use them when answering questions about earlier questions or context.
 If an older assistant reply said you cannot remember past sessions, ignore that — you have this history now.
 Quote or paraphrase the user's earlier user messages when asked what they asked before.
 """
-
-
-def is_meta_memory_query(task: str) -> bool:
-    """True when the user is asking about prior messages in this thread."""
-    t = task.strip().lower()
-    return any(re.search(p, t) for p in META_MEMORY_PATTERNS)
-
-
-def is_simple_query(task: str) -> bool:
-    """True for Q&A-style prompts without action keywords (skips tools/workspace)."""
-    t = task.strip().lower()
-    if t in GREETINGS:
-        return True
-    # strip leading greeting words like "hi", "hello", "hey"
-    for greet in GREETINGS:
-        if t.startswith(greet + " "):
-            t = t[len(greet):].strip()
-            break
-    if not t:
-        return True
-    if any(kw in t for kw in ACTION_KEYWORDS):
-        return False
-    return any(re.match(p, t) for p in SIMPLE_QUERY_PATTERNS)
 
 
 def _chat_memory_label() -> str:
@@ -135,7 +83,13 @@ def _user_display_name(user_id: str) -> str:
         return user_id
 
 
-def answer_directly(task: str, user_id: str, callback=None):
+def answer_directly(
+    task: str,
+    user_id: str,
+    callback=None,
+    *,
+    needs_memory_log: bool = False,
+):
     """Answer simple questions without workspace, tools or file creation."""
     memory_label = _chat_memory_label()
     save_task(user_id, task, memory_label)
@@ -152,8 +106,7 @@ def answer_directly(task: str, user_id: str, callback=None):
         "For greetings only (hi, hello), reply briefly — do NOT repeat or continue prior tasks."
     )
     user_content = task
-    meta = is_meta_memory_query(task)
-    if meta:
+    if needs_memory_log:
         task_log = get_memory_context(user_id)
         if task_log:
             user_content = (
@@ -165,7 +118,7 @@ def answer_directly(task: str, user_id: str, callback=None):
     messages, had_history = _build_messages_with_history(
         user_id, chat_system, user_content, history=history
     )
-    if callback and (had_history or meta):
+    if callback and (had_history or needs_memory_log):
         callback("thinking", "💬 Using conversation history from past runs")
     resolved = resolve_llm_for_run(user_id)
     response = create_chat_completion(user_id, messages=messages)
@@ -196,11 +149,19 @@ def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] 
     callback(event_type, content) streams events to the web UI (thinking, tool, done, …).
     upload is (filename, bytes) from web or CLI --file.
     """
-    if is_simple_query(task):
-        console.print(f"[dim]💬 Simple query — answering directly[/dim]")
-        if callback:
-            callback("thinking", "💬 Simple query — answering directly")
-        answer_directly(task, user_id, callback)
+    route = classify_task(task, user_id, has_upload=upload is not None)
+    route_label = "chat only" if route.mode == "chat" else "full agent"
+    console.print(f"[dim]🧭 Routed ({route_label}) via prompt classifier[/dim]")
+    if callback:
+        callback("thinking", f"🧭 Routed: {route_label}")
+
+    if route.mode == "chat":
+        answer_directly(
+            task,
+            user_id,
+            callback,
+            needs_memory_log=route.needs_memory_log,
+        )
         return
 
     display = _user_display_name(user_id)
@@ -228,12 +189,14 @@ def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] 
     memory_ctx = get_memory_context(user_id)
     memory_section = f"\n\nMemory (past tasks):\n{memory_ctx}" if memory_ctx else ""
 
-    skill = find_skill(task)
+    skill = None
+    if route.skill_file:
+        skill = load_skill_instructions(route.skill_file)
     skill_section = f"\n\nRelevant skill guide:\n{skill}" if skill else ""
     if skill:
-        console.print(f"[dim]📖 Skill matched for this task[/dim]")
+        console.print(f"[dim]📖 Skill selected: {route.skill_file}[/dim]")
         if callback:
-            callback("skill", "📖 Skill matched for this task")
+            callback("skill", f"📖 Skill: {route.skill_file}")
 
     save_task(user_id, task, workspace)
 

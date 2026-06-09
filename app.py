@@ -573,7 +573,7 @@ elif page == "Persona":
 
 elif page == "Skills":
     st.session_state.pop("terminal_ph", None)
-    page_header("Skills", "Guides the agent loads when your task matches trigger keywords.")
+    page_header("Skills", "Guides the agent may load when the prompt router selects a matching skill.")
 
     skills = list_skills()
     if not skills:
@@ -581,12 +581,12 @@ elif page == "Skills":
     else:
         cards = []
         for s in skills:
-            kws = ", ".join(html.escape(k) for k in s["keywords"][:6])
+            when = html.escape(s.get("when_to_use") or "—")
             cards.append(
                 f'<div class="skill-card">'
                 f'<h3>{html.escape(s["title"])}</h3>'
                 f'<p class="skill-kw"><code>{html.escape(s["file"])}</code><br>'
-                f"Triggers: {kws}</p></div>"
+                f"When to use: {when}</p></div>"
             )
         st.markdown(f'<div class="skill-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
 
