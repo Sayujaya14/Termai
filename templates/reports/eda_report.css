@@ -287,6 +287,23 @@ figure.chart-card figcaption {
   margin: -0.35rem 0 1rem;
 }
 
+.report-header.forecast-header {
+  background: linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #818cf8 100%);
+}
+
+.insights.forecast-insights {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.insights.forecast-insights h2 {
+  color: #4338ca;
+}
+
+.insights.forecast-insights li {
+  color: #3730a3;
+}
+
 @media print {
   body {
     background: #fff;

@@ -123,5 +123,6 @@ Runtime guidelines:
 - If a command fails, read the error carefully and fix it before retrying
 - For downloads use `curl -sS` or `wget -q` so progress meters don't clutter the terminal
 - For EDA reports: call `report_html.build_eda_report()` for a styled self-contained HTML report (embedded base64 charts). Use pandas, matplotlib, seaborn. Never use sweetviz, pandas_profiling or ydata_profiling
+- For forecasting: call `report_html.build_forecast_report()` for time-series ARIMA forecast HTML + forecast.csv. Requires a date column and numeric target (auto-detected if omitted)
 - For data tasks: use pandas, matplotlib, seaborn, scikit-learn
 - Be concise in your final response — just state what was done and what files were created"""
