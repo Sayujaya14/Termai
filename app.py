@@ -615,10 +615,13 @@ elif page == "Settings":
     if status["using_personal"]:
         cap = status.get("max_output_tokens")
         cap_text = f" · max {cap} out tokens" if cap else ""
+        base_text = ""
+        if status.get("base_url"):
+            base_text = f" · `{html.escape(status['base_url'])}`"
         st.success(
             f"Using **your API key** — {status['provider_label']} · "
             f"`{html.escape(status['model'])}` · key `{html.escape(status['masked_key'])}`"
-            f"{html.escape(cap_text)}"
+            f"{html.escape(cap_text)}{base_text}"
         )
     elif status["model"]:
         cap = status.get("max_output_tokens")
@@ -653,8 +656,11 @@ elif page == "Settings":
         base_url = st.text_input(
             "Base URL",
             value=base_default,
-            disabled=provider != "custom",
-            help="Required for Custom. Auto-filled for OpenAI and OpenRouter.",
+            placeholder=preset["base_url"] or "https://your-api.example.com/v1",
+            help=(
+                "OpenAI-compatible API root (include /v1 when required). "
+                "Defaults to the provider preset; edit to use a proxy or self-hosted endpoint."
+            ),
         )
         model_default = stored.get("model") or preset["default_model"] or "gpt-4o"
         model = st.text_input("Model", value=model_default)
@@ -698,7 +704,7 @@ elif page == "Settings":
                 user_id,
                 provider=provider,
                 api_key=api_key,
-                base_url=base_url if provider == "custom" else preset["base_url"],
+                base_url=base_url,
                 model=model,
                 fallback_model=fallback_model,
                 max_output_tokens=int(max_output_tokens),
@@ -715,7 +721,7 @@ elif page == "Settings":
                     user_id,
                     provider=provider,
                     api_key=api_key,
-                    base_url=base_url if provider == "custom" else preset["base_url"],
+                    base_url=base_url,
                     model=model,
                     fallback_model=fallback_model,
                     max_output_tokens=int(max_output_tokens),

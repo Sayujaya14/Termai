@@ -137,11 +137,12 @@ def save_user_llm(
         raise ValueError("Model is required.")
 
     base_url = (base_url or "").strip().rstrip("/")
-    if provider == "custom":
-        if not base_url:
+    if not base_url:
+        if provider == "custom":
             raise ValueError("Base URL is required for a custom provider.")
-    else:
-        base_url = base_url or _preset_base_url(provider)
+        base_url = _preset_base_url(provider)
+    elif not base_url.startswith(("http://", "https://")):
+        raise ValueError("Base URL must start with http:// or https://")
 
     raw = _load_raw_users()
     info = raw.get(user_id)
