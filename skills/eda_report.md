@@ -5,47 +5,52 @@ User wants an exploratory data analysis report (HTML + plots + summary statistic
 
 ## Steps
 1. Load the dataset using pandas (read_csv, read_excel, etc.)
-2. Install required libs: `pip install pandas matplotlib seaborn`
-3. Write the EDA script inside the workspace folder:
+2. Install required libs: `pip install pandas matplotlib seaborn jinja2`
+3. Write a short script in the workspace that calls **`build_eda_report()`** from `report_html.py`.
+   Do **not** hand-build HTML strings — the template handles layout, CSS, and embedded charts.
+
    ```python
+   import os
+   import sys
+
    import pandas as pd
-   import matplotlib
-   matplotlib.use('Agg')
-   import matplotlib.pyplot as plt
-   import seaborn as sns
 
-   df = pd.read_csv("<dataset_path>")
+   WORKSPACE = "<workspace>"  # absolute task workspace path
+   DATASET = "<dataset_path>"   # absolute path to CSV/Excel file
 
-   # summary stats
-   summary = df.describe(include='all').to_html()
+   _TERMAI_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+   sys.path.insert(0, _TERMAI_ROOT)
+   from report_html import build_eda_report
 
-   # plots
-   for col in df.select_dtypes(include='number').columns:
-       plt.figure()
-       sns.histplot(df[col], kde=True)
-       plt.title(f'Distribution of {col}')
-       plt.savefig("<workspace>/{col}_distribution.png")
-       plt.close()
-
-   # correlation heatmap
-   plt.figure(figsize=(10, 8))
-   sns.heatmap(df.select_dtypes(include='number').corr(), annot=True, fmt='.2f')
-   plt.title('Correlation Heatmap')
-   plt.savefig("<workspace>/correlation_heatmap.png")
-   plt.close()
-
-   # write HTML report
-   with open("<workspace>/eda_report.html", "w") as f:
-       f.write(f"<h1>EDA Report</h1>{summary}")
-       for col in df.select_dtypes(include='number').columns:
-           f.write(f'<h2>{col}</h2><img src="{col}_distribution.png">')
-       f.write('<h2>Correlation</h2><img src="correlation_heatmap.png">')
+   df = pd.read_csv(DATASET)
+   report_path = os.path.join(WORKSPACE, "eda_report.html")
+   build_eda_report(
+       df,
+       report_path,
+       dataset_name=os.path.basename(DATASET),
+       title="Exploratory Data Analysis",
+   )
+   print(f"Report written: {report_path}")
    ```
-4. Run the script using absolute path
-5. Confirm the HTML and PNG files were created
+
+4. Run the script with absolute path
+5. Confirm `eda_report.html` opens standalone with styled layout and all charts visible
+
+## What the report includes
+- Header with dataset name, row/column counts, timestamp
+- Key findings (rule-based insights)
+- Overview statistics table (styled)
+- Missing-value bars
+- Numeric distribution histograms (embedded base64)
+- Categorical value-count charts (top 10 per column)
+- Pie charts for low-cardinality categories (2–8 unique values)
+- Scatter plots for top correlated numeric column pairs
+- Box plot: first numeric column vs first low-cardinality category
+- Correlation heatmap (when 2+ numeric columns)
+- Optional PNG copies saved in workspace for zip download
 
 ## Rules
-- Always use matplotlib.use('Agg') to avoid display errors on headless systems
+- Always use `build_eda_report()` — never write raw `<h1>` / `<img src="file.png">` HTML
 - Never use sweetviz, pandas_profiling or ydata_profiling
-- Save all output files inside the workspace folder using absolute paths
 - Use the actual dataset file path provided by the user
+- Save the script inside the workspace folder
