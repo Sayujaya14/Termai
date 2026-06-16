@@ -125,14 +125,16 @@ button[data-testid="stExpandSidebarButton"] {
     margin-bottom: 1rem;
 }
 .user-chip {
-    display: inline-block;
+    display: block;
     background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 6px 12px;
+    border-radius: var(--radius);
+    padding: 8px 12px;
     font-size: 0.78rem;
+    line-height: 1.5;
     color: var(--muted);
     margin-bottom: 1rem;
+    word-break: break-word;
 }
 .user-chip strong { color: var(--accent); }
 
@@ -295,8 +297,11 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     border-radius: 12px;
     border: 1px solid var(--border);
     padding: 18px;
-    min-height: 68vh;
-    max-height: 68vh;
+    /* Fill the space between the page header and the fixed input bar so the
+       page itself never scrolls — only the terminal scrolls internally. */
+    height: calc(100vh - 17rem);
+    min-height: 280px;
+    max-height: calc(100vh - 17rem);
     overflow-y: auto;
     box-shadow: inset 0 2px 24px rgba(0,0,0,0.4);
 }
@@ -306,6 +311,28 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     font-size: 0.9rem;
 }
 .terminal-empty span { color: var(--accent); }
+
+/* Welcome banner (ASCII art) + boot status lines */
+.term-banner {
+    color: var(--green) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    background: transparent !important;
+    padding: 8px 0 4px;
+    margin: 0;
+    line-height: 1.25;
+    white-space: pre;
+    text-shadow: 0 0 8px rgba(126, 231, 135, 0.35);
+    overflow-x: auto;
+}
+.term-status {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    margin-top: 6px;
+    line-height: 1.7;
+}
+.term-status > div { margin: 0; }
+.term-status .prompt { color: var(--accent); }
 
 .input-bar {
     position: fixed;
@@ -379,6 +406,20 @@ div[data-testid="stTextInput"] input:disabled {
     color: var(--muted) !important;
     -webkit-text-fill-color: var(--muted) !important;
     opacity: 1 !important;
+}
+/* Kill Chrome's white autofill background on filled fields (username/password/API key) */
+div[data-testid="stTextInput"] input:-webkit-autofill,
+div[data-testid="stTextInput"] input:-webkit-autofill:hover,
+div[data-testid="stTextInput"] input:-webkit-autofill:focus,
+div[data-testid="stTextInput"] input:-webkit-autofill:active,
+div[data-testid="stTextArea"] textarea:-webkit-autofill {
+    -webkit-text-fill-color: var(--text) !important;
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset !important;
+    box-shadow: 0 0 0 1000px var(--surface) inset !important;
+    caret-color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    transition: background-color 9999s ease-in-out 0s !important;
 }
 
 /* Selectbox */

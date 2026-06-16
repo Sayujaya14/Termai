@@ -310,52 +310,28 @@ if page == "Agent":
 
     if "log_lines" not in st.session_state:
         st.session_state.log_lines = [
-        """
-<div style="
-    color:#00ff88;
-    font-family:'JetBrains Mono',monospace;
-    padding:12px 0;
-    line-height:1.25;
-    white-space:pre;
-    text-shadow:0 0 8px rgba(0,255,136,0.35);
-    overflow-x:auto;
-">
+            '<div class="term-banner">'
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║                                                              ║\n"
+            "║ ████████╗███████╗██████╗ ███╗   ███╗ █████╗ ██╗              ║\n"
+            "║ ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██╔══██╗██║              ║\n"
+            "║    ██║   █████╗  ██████╔╝██╔████╔██║███████║██║              ║\n"
+            "║    ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██╔══██║██║              ║\n"
+            "║    ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║  ██║██║              ║\n"
+            "║    ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝              ║\n"
+            "║                                                              ║\n"
+            "║                 Welcome to TermAI                            ║\n"
+            "║              AI Terminal Coding Agent                        ║\n"
+            "║                                                              ║\n"
+            "╚══════════════════════════════════════════════════════════════╝"
+            "</div>",
 
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║ ████████╗███████╗██████╗ ███╗   ███╗ █████╗ ██╗              ║
-║ ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██╔══██╗██║              ║
-║    ██║   █████╗  ██████╔╝██╔████╔██║███████║██║              ║
-║    ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██╔══██║██║              ║
-║    ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║  ██║██║              ║
-║    ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝              ║
-║                                                              ║
-║                 Welcome to TermAI                            ║
-║              AI Terminal Coding Agent                        ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-
-</div>
-        """,
-
-        """
-<div style="
-    color:#6c6c6c;
-    font-family:'JetBrains Mono',monospace;
-    font-size:13px;
-    margin-top:8px;
-    line-height:1.5;
-">
-
-$ System initialized<br>
-$ OpenRouter fallback ready<br>
-$ Workspace manager online<br>
-$ Memory engine connected<br>
-$ Awaiting task input...
-
-</div>
-        """
-    ]
+            '<div class="term-status">'
+            '<div><span class="prompt">$</span> System initialized — OpenRouter fallback ready</div>'
+            '<div><span class="prompt">$</span> Workspace manager online — Memory engine connected</div>'
+            '<div><span class="prompt">$</span> Awaiting task input…</div>'
+            "</div>",
+        ]
     if "running" not in st.session_state:
         st.session_state.running = False
     if "pending_upload" not in st.session_state:
@@ -385,7 +361,7 @@ $ Awaiting task input...
             use_container_width=True,
         )
 
-    st.markdown("<div style='height:88px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     st.markdown('<div class="input-bar">', unsafe_allow_html=True)
     col_attach, col_form = st.columns([1, 11], vertical_alignment="bottom")
     with col_attach:
