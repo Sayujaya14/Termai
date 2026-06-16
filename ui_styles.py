@@ -54,31 +54,65 @@ def inject_login_page_css() -> None:
     )
 
 
-def inject_global_css() -> None:
-    """Inject dark theme CSS (sidebar, terminal, forms, login, cards)."""
+THEMES = {
+    "dark": {
+        "--bg": "#0a0a0f",
+        "--surface": "#12121a",
+        "--surface-2": "#1a1a24",
+        "--border": "#2a2a3a",
+        "--text": "#e8eaf0",
+        "--muted": "#8b8fa8",
+        "--accent": "#6c9eff",
+        "--accent-hover": "#8ab4ff",
+        "--green": "#7ee787",
+        "--yellow": "#f9e2af",
+        "--purple": "#c4a7ff",
+        "--red": "#f38ba8",
+        "--term-bg": "#08080c",
+        "--term-shadow": "rgba(0, 0, 0, 0.4)",
+        "--term-glow": "rgba(126, 231, 135, 0.35)",
+        "--radius": "10px",
+    },
+    "light": {
+        "--bg": "#f4f5f8",
+        "--surface": "#ffffff",
+        "--surface-2": "#eceef3",
+        "--border": "#d6dae3",
+        "--text": "#1b1d24",
+        "--muted": "#5d6270",
+        "--accent": "#3b6fe0",
+        "--accent-hover": "#2f5ed0",
+        "--green": "#1f8f4e",
+        "--yellow": "#a9760a",
+        "--purple": "#7c3aed",
+        "--red": "#d6336c",
+        "--term-bg": "#f8f9fb",
+        "--term-shadow": "rgba(0, 0, 0, 0.08)",
+        "--term-glow": "rgba(31, 143, 78, 0.25)",
+        "--radius": "10px",
+    },
+}
+
+
+def _root_block(theme: str) -> str:
+    """Build the ``:root`` custom-property block for the given theme."""
+    palette = THEMES.get(theme, THEMES["dark"])
+    lines = "\n".join(f"    {name}: {value};" for name, value in palette.items())
+    return f":root {{\n{lines}\n}}"
+
+
+def inject_global_css(theme: str = "dark") -> None:
+    """Inject theme CSS (sidebar, terminal, forms, login, cards)."""
     import streamlit as st
 
     st.markdown(
-        """
+        f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Roboto:wght@500&display=swap');
 
-:root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --surface-2: #1a1a24;
-    --border: #2a2a3a;
-    --text: #e8eaf0;
-    --muted: #8b8fa8;
-    --accent: #6c9eff;
-    --accent-hover: #8ab4ff;
-    --green: #7ee787;
-    --yellow: #f9e2af;
-    --purple: #c4a7ff;
-    --red: #f38ba8;
-    --radius: 10px;
-}
-
+{_root_block(theme)}
+"""
+        + """
 #MainMenu, footer { visibility: hidden; height: 0 !important; }
 header[data-testid="stHeader"] {
     visibility: visible !important;
@@ -105,7 +139,7 @@ button[data-testid="stExpandSidebarButton"] {
 
 /* Sidebar */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0e0e14 0%, #0a0a0f 100%) !important;
+    background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%) !important;
     border-right: 1px solid var(--border) !important;
 }
 [data-testid="stSidebar"] > div:first-child {
@@ -242,7 +276,7 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     word-break: break-all;
 }
 .task-card-summary {
-    color: #b8bcc8;
+    color: var(--muted);
     font-size: 0.85rem;
     line-height: 1.45;
     margin-top: 8px;
@@ -293,7 +327,7 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
 .line-error    { color: var(--red); margin: 2px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 
 .terminal-wrap {
-    background: #08080c;
+    background: var(--term-bg);
     border-radius: 12px;
     border: 1px solid var(--border);
     padding: 18px;
@@ -303,7 +337,7 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     min-height: 280px;
     max-height: calc(100vh - 17rem);
     overflow-y: auto;
-    box-shadow: inset 0 2px 24px rgba(0,0,0,0.4);
+    box-shadow: inset 0 2px 24px var(--term-shadow);
 }
 .terminal-empty {
     color: var(--muted);
@@ -321,7 +355,7 @@ div[data-testid="stSidebar"] label:has(div[aria-checked="true"]) {
     margin: 0;
     line-height: 1.25;
     white-space: pre;
-    text-shadow: 0 0 8px rgba(126, 231, 135, 0.35);
+    text-shadow: 0 0 8px var(--term-glow);
     overflow-x: auto;
 }
 .term-status {
@@ -420,6 +454,22 @@ div[data-testid="stTextArea"] textarea:-webkit-autofill {
     border: 1px solid var(--border) !important;
     border-radius: var(--radius) !important;
     transition: background-color 9999s ease-in-out 0s !important;
+}
+/* Text-input wrapper + password reveal (eye) button. Baseweb keeps a dark
+   default from the config base theme; force the active palette so password
+   fields switch with light/dark instead of showing a black box. */
+div[data-testid="stTextInput"] div[data-baseweb="input"],
+div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
+    background-color: var(--surface) !important;
+    border-radius: var(--radius) !important;
+}
+div[data-testid="stTextInput"] div[data-baseweb="input"] button {
+    background-color: var(--surface) !important;
+    color: var(--muted) !important;
+    border: none !important;
+}
+div[data-testid="stTextInput"] div[data-baseweb="input"] button svg {
+    fill: var(--muted) !important;
 }
 
 /* Selectbox */
@@ -701,6 +751,24 @@ div[data-baseweb="tooltip"] svg {
 }
 
 h1, h2, h3, p, label, .stMarkdown { color: var(--text); }
+/* Headings (incl. st.subheader) — override Streamlit's base-theme color so
+   they stay readable in both light and dark. */
+[data-testid="stHeading"],
+[data-testid="stHeading"] *,
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+.stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+    color: var(--text) !important;
+}
+/* Inline code / filename chips — palette-based so they switch with the theme
+   instead of staying a black box from the dark base. */
+code, .stMarkdown code, [data-testid="stMarkdownContainer"] code {
+    background: var(--surface-2) !important;
+    color: var(--green) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+    padding: 1px 6px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
 </style>
         """,
         unsafe_allow_html=True,

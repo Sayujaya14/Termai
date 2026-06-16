@@ -200,6 +200,31 @@ def clear_user_llm(user_id: str) -> None:
     _save_raw_users(raw)
 
 
+VALID_THEMES = ("dark", "light")
+
+
+def get_user_theme(user_id: str) -> str:
+    """Return the user's saved UI theme ('dark' or 'light'); defaults to 'dark'."""
+    user_id = validate_user_id(user_id)
+    info = _load_raw_users().get(user_id)
+    theme = info.get("theme") if isinstance(info, dict) else None
+    return theme if theme in VALID_THEMES else "dark"
+
+
+def save_user_theme(user_id: str, theme: str) -> None:
+    """Persist the user's UI theme preference in users.json."""
+    user_id = validate_user_id(user_id)
+    if theme not in VALID_THEMES:
+        raise ValueError(f"Unknown theme: {theme}")
+    raw = _load_raw_users()
+    info = raw.get(user_id)
+    if not isinstance(info, dict):
+        raise ValueError(f"Unknown user: {user_id}")
+    info["theme"] = theme
+    raw[user_id] = info
+    _save_raw_users(raw)
+
+
 def resolve_llm_for_run(user_id: str) -> ResolvedLLMConfig:
     """Merge user settings with server .env defaults."""
     user_id = validate_user_id(user_id)

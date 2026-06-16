@@ -54,10 +54,12 @@ from skills import (
 from user_llm import (
     clear_user_llm,
     get_user_llm,
+    get_user_theme,
     llm_ready,
     llm_status_summary,
     mask_api_key,
     save_user_llm,
+    save_user_theme,
     test_llm_connection,
 )
 from ui_attach import attach_file_picker
@@ -71,7 +73,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-inject_global_css()
+# Theme: login page is always dark; logged-in users get their saved preference.
+# Reload from disk when the active user changes; the in-session value (updated
+# by the sidebar toggle) wins otherwise.
+if is_logged_in():
+    _theme_uid = get_current_user_id()
+    if st.session_state.get("_theme_uid") != _theme_uid:
+        st.session_state.theme = get_user_theme(_theme_uid)
+        st.session_state._theme_uid = _theme_uid
+    _active_theme = st.session_state.get("theme", "dark")
+else:
+    _active_theme = "dark"
+
+inject_global_css(_active_theme)
 
 if not is_logged_in():
     render_login_page()
@@ -108,6 +122,17 @@ with st.sidebar:
     )
     st.session_state.nav_page = page
     st.divider()
+    _is_dark = st.session_state.get("theme", "dark") == "dark"
+    if st.button(
+        "☀️ Light mode" if _is_dark else "🌙 Dark mode",
+        use_container_width=True,
+        type="secondary",
+        key="theme_toggle",
+    ):
+        _new_theme = "light" if _is_dark else "dark"
+        st.session_state.theme = _new_theme
+        save_user_theme(user_id, _new_theme)
+        st.rerun()
     if st.button("Sign out", use_container_width=True, type="secondary"):
         logout_session()
         st.rerun()
