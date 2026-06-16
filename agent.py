@@ -21,7 +21,7 @@ from memory import (
     update_summary,
 )
 from paths import make_task_workspace, user_agent_home, workspace_display_name
-from skills import load_skill_instructions
+from skills import format_skill_catalog, load_skill_instructions
 from persona import build_system_prompt, ensure_persona_files
 from task_router import classify_task
 
@@ -105,6 +105,13 @@ def answer_directly(
         "Do NOT create files, do NOT use tools, do NOT write code unless explicitly asked. "
         "For greetings only (hi, hello), reply briefly — do NOT repeat or continue prior tasks."
     )
+    catalog = format_skill_catalog(user_id)
+    if catalog:
+        chat_system += (
+            "\n\nYour available skill guides (built-in + this user's personal skills). "
+            "When asked what skills you have, list these exactly — do not invent others:\n"
+            + catalog
+        )
     user_content = task
     if needs_memory_log:
         task_log = get_memory_context(user_id)
@@ -191,7 +198,7 @@ def run_agent(task: str, user_id: str, callback=None, upload: tuple[str, bytes] 
 
     skill = None
     if route.skill_file:
-        skill = load_skill_instructions(route.skill_file)
+        skill = load_skill_instructions(route.skill_file, user_id)
     skill_section = f"\n\nRelevant skill guide:\n{skill}" if skill else ""
     if skill:
         console.print(f"[dim]📖 Skill selected: {route.skill_file}[/dim]")

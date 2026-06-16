@@ -49,6 +49,14 @@ def user_agent_home(user_id: str) -> str:
     return user_workspace_root(user_id)
 
 
+def user_skills_dir(user_id: str) -> str:
+    """Per-user private skills: workspaces/<user_id>/skills/."""
+    user_id = validate_user_id(user_id)
+    path = os.path.join(user_workspace_root(user_id), "skills")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def make_task_workspace(user_id: str, task: str) -> str:
     """Create workspaces/<user_id>/<task_slug>_<timestamp>/ for one run."""
     user_id = validate_user_id(user_id)

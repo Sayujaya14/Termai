@@ -79,10 +79,26 @@ GOOGLE_ALLOWED_DOMAINS = (
     else None
 )
 
-# Substrings that trigger safety checks in run_command
+# Regex patterns that trigger safety checks in run_command.
+#
+# NOTE: this is a *speed bump*, not a security control. It catches common
+# destructive commands and obvious variants (flag reordering, extra spaces,
+# long flags), but a determined caller can always evade a blocklist. Real
+# isolation requires a container/VM sandbox — see the Security notes in README.
+#
+# Matched against a whitespace-normalized command, case-insensitively.
 DANGEROUS_PATTERNS = [
-    "rm -rf", "rm -f", "mkfs", "dd if=",
-    ":(){:|:&};:", "chmod -R 777", "sudo rm", "> /dev/", "format",
+    r"\brm\b\s+(?:-\S*[rf]\S*\s+|--(?:recursive|force)\s+)+",  # rm -rf / -r / -f / --recursive, any order/spacing
+    r"\bmkfs(?:\.\w+)?\b",                                      # mkfs, mkfs.ext4, ...
+    r"\bdd\b[^\n]*\bof=/dev/",                                  # dd writing to a device
+    r":\s*\(\s*\)\s*\{.*:\s*\|\s*:.*&\s*\}\s*;\s*:",            # fork bomb :(){ :|:& };:
+    r"\bchmod\b\s+(?:-R\s+|--recursive\s+)?[0-7]*7{3}",         # chmod 777 / -R 777
+    r"\bsudo\b",                                                # privilege escalation
+    r">\s*/dev/(?:sd|nvme|hd|disk|mapper|null/)",              # redirect onto a block device
+    r"\bmkfs\b|\bformat\b",                                     # filesystem format
+    r"\bfind\b[^\n]*(?:-delete\b|-exec\s+rm\b)",               # find ... -delete / -exec rm
+    r"\b(?:shutil\.rmtree|os\.(?:remove|unlink)|rmtree)\s*\(",  # destructive python one-liners
+    r"\b:>\s*/|\btruncate\b\s+-s\s*0",                         # zero-out files
 ]
 
 # Pricing per 1M tokens (USD) — used for display only

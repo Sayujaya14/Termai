@@ -39,7 +39,18 @@ from persona import (
     write_persona_file,
 )
 from config import MAX_OUTPUT_TOKENS, PROVIDER_PRESETS
-from skills import list_skills
+from skills import (
+    build_skill_markdown,
+    copy_builtin_to_personal,
+    delete_personal_skill,
+    list_builtin_skills,
+    list_personal_skills,
+    parse_skill_for_edit,
+    read_skill_content,
+    save_personal_skill,
+    slugify_skill_filename,
+    validate_skill_basename,
+)
 from user_llm import (
     clear_user_llm,
     get_user_llm,
@@ -573,32 +584,157 @@ elif page == "Persona":
 
 elif page == "Skills":
     st.session_state.pop("terminal_ph", None)
-    page_header("Skills", "Guides the agent may load when the prompt router selects a matching skill.")
+    page_header(
+        "Skills",
+        "Guides the agent may load when the prompt router selects a matching skill. "
+        "Built-in skills are read-only; create your own under My skills.",
+    )
 
-    skills = list_skills()
-    if not skills:
-        st.info("No skills in the `skills/` folder yet.")
+    if "skill_form_mode" not in st.session_state:
+        st.session_state.skill_form_mode = None
+    if "skill_edit_basename" not in st.session_state:
+        st.session_state.skill_edit_basename = None
+
+    builtins = list_builtin_skills()
+    personal = list_personal_skills(user_id)
+
+    st.subheader("Built-in skills")
+    st.caption("Shared guides shipped with Termai. Copy one to customize it.")
+    if not builtins:
+        st.info("No built-in skills in the repo `skills/` folder.")
     else:
-        cards = []
-        for s in skills:
-            when = html.escape(s.get("when_to_use") or "—")
-            cards.append(
-                f'<div class="skill-card">'
-                f'<h3>{html.escape(s["title"])}</h3>'
-                f'<p class="skill-kw"><code>{html.escape(s["file"])}</code><br>'
-                f"When to use: {when}</p></div>"
-            )
-        st.markdown(f'<div class="skill-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
-
-        st.divider()
-        st.caption("Full skill documents")
-        for s in skills:
-            with st.expander(s["title"]):
-                skill_path = os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)), "skills", s["file"]
+        for s in builtins:
+            col_main, col_action = st.columns([5, 1])
+            with col_main:
+                when = html.escape(s.get("when_to_use") or "—")
+                st.markdown(
+                    f'<div class="skill-card" style="margin-bottom:0.5rem">'
+                    f'<h3>{html.escape(s["title"])}</h3>'
+                    f'<p class="skill-kw"><code>{html.escape(s["skill_id"])}</code><br>'
+                    f"When to use: {when}</p></div>",
+                    unsafe_allow_html=True,
                 )
-                with open(skill_path) as f:
-                    st.markdown(f.read())
+            with col_action:
+                if st.button("Copy", key=f"copy_skill_{s['file']}", use_container_width=True):
+                    try:
+                        new_id = copy_builtin_to_personal(user_id, s["file"])
+                        st.session_state.skill_form_mode = "edit"
+                        st.session_state.skill_edit_basename = new_id.split("/", 1)[1]
+                        st.success(f"Copied to {new_id}")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
+            with st.expander(f"View: {s['title']}"):
+                content = read_skill_content(s["skill_id"], user_id)
+                if content:
+                    st.markdown(content)
+
+    st.divider()
+    st.subheader("My skills")
+    st.caption("Private to your account. Router ids use the `personal/` prefix.")
+
+    btn_col1, btn_col2, _ = st.columns([1, 1, 3])
+    with btn_col1:
+        if st.button("Create new skill", use_container_width=True):
+            st.session_state.skill_form_mode = "create"
+            st.session_state.skill_edit_basename = None
+            st.rerun()
+    with btn_col2:
+        if st.session_state.skill_form_mode and st.button("Cancel", use_container_width=True):
+            st.session_state.skill_form_mode = None
+            st.session_state.skill_edit_basename = None
+            st.rerun()
+
+    form_mode = st.session_state.skill_form_mode
+    if form_mode in ("create", "edit"):
+        defaults = {"title": "", "when_to_use": "", "steps_and_rules": "", "filename": ""}
+        if form_mode == "edit" and st.session_state.skill_edit_basename:
+            edit_path_id = f"personal/{st.session_state.skill_edit_basename}"
+            raw = read_skill_content(edit_path_id, user_id)
+            if raw:
+                parsed = parse_skill_for_edit(raw)
+                defaults.update(parsed)
+                defaults["filename"] = st.session_state.skill_edit_basename
+        elif form_mode == "create":
+            defaults["steps_and_rules"] = (
+                "1. Describe the first step.\n"
+                "2. Describe the next step.\n\n"
+                "## Rules\n"
+                "- Add constraints or conventions here."
+            )
+
+        form_title = "Edit skill" if form_mode == "edit" else "Create skill"
+        with st.form("skill_editor_form", clear_on_submit=False):
+            st.markdown(f"**{form_title}**")
+            title = st.text_input("Title", value=defaults["title"])
+            when_to_use = st.text_area("When to use", value=defaults["when_to_use"], height=80)
+            steps_and_rules = st.text_area(
+                "Steps and rules",
+                value=defaults["steps_and_rules"],
+                height=220,
+                help="Use ## Steps / ## Rules headings, or plain numbered steps.",
+            )
+            if form_mode == "create":
+                suggested = slugify_skill_filename(title) if title.strip() else "my_skill.md"
+                filename = st.text_input(
+                    "Filename",
+                    value=defaults["filename"] or suggested,
+                    help="Lowercase, letters/numbers/underscores, ends with .md",
+                )
+            else:
+                filename = st.session_state.skill_edit_basename
+                st.text_input("Filename", value=filename, disabled=True)
+
+            submitted = st.form_submit_button("Save skill", type="primary")
+            if submitted:
+                try:
+                    content = build_skill_markdown(title, when_to_use, steps_and_rules)
+                    if form_mode == "create":
+                        basename = validate_skill_basename(filename or slugify_skill_filename(title))
+                    else:
+                        basename = validate_skill_basename(filename)
+                    skill_id = save_personal_skill(user_id, basename, content)
+                    st.session_state.skill_form_mode = None
+                    st.session_state.skill_edit_basename = None
+                    st.success(f"Saved {skill_id}")
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))
+
+    if not personal:
+        st.info("You have no personal skills yet. Create one or copy a built-in skill.")
+    else:
+        for s in personal:
+            col_main, col_edit, col_del = st.columns([5, 1, 1])
+            with col_main:
+                when = html.escape(s.get("when_to_use") or "—")
+                st.markdown(
+                    f'<div class="skill-card" style="margin-bottom:0.5rem">'
+                    f'<h3>{html.escape(s["title"])}</h3>'
+                    f'<p class="skill-kw"><code>{html.escape(s["skill_id"])}</code><br>'
+                    f"When to use: {when}</p></div>",
+                    unsafe_allow_html=True,
+                )
+            with col_edit:
+                if st.button("Edit", key=f"edit_skill_{s['file']}", use_container_width=True):
+                    st.session_state.skill_form_mode = "edit"
+                    st.session_state.skill_edit_basename = s["file"]
+                    st.rerun()
+            with col_del:
+                if st.button("Delete", key=f"del_skill_{s['file']}", use_container_width=True):
+                    try:
+                        delete_personal_skill(user_id, s["file"])
+                        if st.session_state.skill_edit_basename == s["file"]:
+                            st.session_state.skill_form_mode = None
+                            st.session_state.skill_edit_basename = None
+                        st.success(f"Deleted {s['skill_id']}")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
+            with st.expander(f"View: {s['title']}"):
+                content = read_skill_content(s["skill_id"], user_id)
+                if content:
+                    st.markdown(content)
 
 elif page == "Settings":
     st.session_state.pop("terminal_ph", None)

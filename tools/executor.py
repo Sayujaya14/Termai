@@ -22,6 +22,9 @@ _CURL_PROGRESS_RE = re.compile(
     r"^\s*(% Total|Dload\s+Upload|\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+[\d:]+\s+--:--:--)"
 )
 
+# Compile once. Matched case-insensitively against a whitespace-normalized command.
+_DANGEROUS_RES = [re.compile(p, re.IGNORECASE) for p in DANGEROUS_PATTERNS]
+
 
 def _is_curl_progress_line(line: str) -> bool:
     """True for curl's stderr progress meter (merged into stdout in run_command)."""
@@ -29,8 +32,14 @@ def _is_curl_progress_line(line: str) -> bool:
 
 
 def is_dangerous(command: str) -> bool:
-    """True if command contains any DANGEROUS_PATTERNS substring."""
-    return any(p in command for p in DANGEROUS_PATTERNS)
+    """
+    True if the command matches a destructive pattern (speed bump, not a sandbox).
+
+    Collapses runs of whitespace first so ``rm  -rf`` and ``rm -rf`` match alike.
+    See DANGEROUS_PATTERNS in config.py for the caveats.
+    """
+    normalized = re.sub(r"\s+", " ", command)
+    return any(r.search(normalized) for r in _DANGEROUS_RES)
 
 
 def run_command(command: str, cwd: str = None, callback=None) -> str:

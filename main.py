@@ -107,16 +107,22 @@ def main():
         show_memory(user_id)
 
     elif args[0] == "skills":
-        skills = list_skills()
+        skills = list_skills(user_id)
         if not skills:
-            console.print("[dim]No skills found in skills/ folder.[/dim]")
+            console.print("[dim]No skills found.[/dim]")
         else:
             table = Table(title="Available Skills", border_style="cyan")
-            table.add_column("File", style="cyan")
+            table.add_column("Id", style="cyan")
             table.add_column("Title", style="white")
-            table.add_column("Triggers", style="dim")
+            table.add_column("Source", style="dim")
+            table.add_column("When to use", style="dim")
             for s in skills:
-                table.add_row(s["file"], s["title"], ", ".join(s["keywords"][:4]))
+                table.add_row(
+                    s["skill_id"],
+                    s["title"],
+                    s["source"],
+                    (s.get("when_to_use") or "—")[:60],
+                )
             console.print(table)
 
     elif args[0] == "persona":
