@@ -56,6 +56,7 @@ from user_llm import (
     get_user_llm,
     llm_ready,
     llm_status_summary,
+    mask_api_key,
     save_user_llm,
     test_llm_connection,
 )
@@ -786,8 +787,10 @@ elif page == "Settings":
             "API key",
             type="password",
             placeholder="sk-…" if not stored.get("api_key") else "Leave blank to keep current key",
-            help="Stored in users.json on this server. Never shared with other users.",
+            help="Stored encrypted in users.json on this server. Never shared with other users.",
         )
+        if stored.get("api_key"):
+            st.caption(f"Current saved key: `{mask_api_key(stored['api_key'])}` — leave the field blank to keep it.")
         base_default = stored.get("base_url") or preset["base_url"]
         base_url = st.text_input(
             "Base URL",

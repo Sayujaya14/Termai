@@ -22,6 +22,7 @@ from config import (
     PROVIDER_PRESETS,
 )
 from paths import validate_user_id
+from secrets_crypto import decrypt_secret, encrypt_secret, ensure_encrypted
 
 console = Console()
 
@@ -51,11 +52,11 @@ def _make_client(api_key: str | None, base_url: str | None) -> OpenAI | None:
 
 
 def mask_api_key(api_key: str) -> str:
-    """Return a short masked preview of an API key."""
+    """Masked preview: first 2 and last 2 characters, e.g. ``sk••••3f``."""
     key = (api_key or "").strip()
-    if len(key) <= 8:
+    if len(key) <= 6:
         return "••••••••"
-    return f"{key[:3]}…{key[-4:]}"
+    return f"{key[:2]}••••{key[-2:]}"
 
 
 def _normalize_provider(provider: str) -> str:
@@ -116,7 +117,12 @@ def get_user_llm(user_id: str) -> dict | None:
     if not isinstance(info, dict):
         return None
     llm = info.get("llm")
-    return dict(llm) if isinstance(llm, dict) else None
+    if not isinstance(llm, dict):
+        return None
+    llm = dict(llm)
+    if llm.get("api_key"):
+        llm["api_key"] = decrypt_secret(llm["api_key"])  # stored encrypted at rest
+    return llm
 
 
 def save_user_llm(
@@ -150,9 +156,17 @@ def save_user_llm(
         raise ValueError(f"Unknown user: {user_id}")
 
     existing = info.get("llm") if isinstance(info.get("llm"), dict) else {}
-    key = (api_key or "").strip() or (existing.get("api_key") or "").strip()
-    if not key:
-        raise ValueError("API key is required.")
+    # ``existing`` holds the raw (encrypted) value from disk. A newly entered
+    # key arrives as plaintext and is encrypted; an unchanged key keeps its
+    # stored ciphertext (legacy plaintext is migrated to ciphertext here).
+    new_key = (api_key or "").strip()
+    if new_key:
+        stored_key = encrypt_secret(new_key)
+    else:
+        existing_key = (existing.get("api_key") or "").strip()
+        if not existing_key:
+            raise ValueError("API key is required.")
+        stored_key = ensure_encrypted(existing_key)
 
     if max_output_tokens is None or max_output_tokens == "":
         token_cap = _normalize_max_output_tokens(
@@ -164,7 +178,7 @@ def save_user_llm(
 
     info["llm"] = {
         "provider": provider,
-        "api_key": key,
+        "api_key": stored_key,
         "base_url": base_url,
         "model": model,
         "fallback_model": (fallback_model or "").strip(),
